@@ -1,0 +1,57 @@
+version: "3.8"
+
+services:
+  db:
+    image: postgres:15-alpine
+    environment:
+      POSTGRES_USER: hdmis
+      POSTGRES_PASSWORD: hdmis_password
+      POSTGRES_DB: hdmis
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U hdmis"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  api:
+    build:
+      context: ../../
+      dockerfile: infra/docker/Dockerfile
+    ports:
+      - "8000:8000"
+    environment:
+      DATABASE_URL: postgresql://hdmis:hdmis_password@db:5432/hdmis
+      REDIS_URL: redis://redis:6379/0
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    # Adjust this to point to the correct FastAPI app instance
+    command: uvicorn pipeline_a.api.routes:router --host 0.0.0.0 --port 8000
+
+  worker:
+    build:
+      context: ../../
+      dockerfile: infra/docker/Dockerfile
+    environment:
+      DATABASE_URL: postgresql://hdmis:hdmis_password@db:5432/hdmis
+      REDIS_URL: redis://redis:6379/0
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    command: celery -A infra.queue.celery_config.celery_app worker --loglevel=info

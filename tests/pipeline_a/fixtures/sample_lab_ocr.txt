@@ -1,0 +1,16 @@
+PATHOLOGY REPORT
+Patient Name: John Doe
+Age: 45
+Date: 2023-10-01
+
+COMPLETE BLOOD COUNT (CBC)
+Test Name          Result     Units      Reference Range
+-------------------------------------------------------
+Hemoglobin (Hb)    14.2       g/dL       13.0 - 17.0
+TLC (WBC)          8,500      cells/cumm 4,000 - 11,000
+DLC
+ Neutrophils       60         %          40 - 80
+ Lymphocytes       30         %          20 - 40
+ Eosinophils       02         %          01 - 06
+ Monocytes         08         %          02 - 10
+Platelets          2,50,000   cells/cumm 1,50,000 - 4,00,000
