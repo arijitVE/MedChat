@@ -75,22 +75,34 @@ def _load_prompt(document_type: DocumentType) -> str:
 # Inline prompt templates (for types without dedicated .txt files)
 # ---------------------------------------------------------------------------
 
-_LAB_REPORT_PROMPT = """You are a medical document extraction system. Extract structured data from this lab report.
+_LAB_REPORT_PROMPT = """Respond in JSON format.
+You are a medical data extraction AI.
+Extract ALL test results from the lab report text provided.
 
-RULES:
-- Respond ONLY with valid JSON. No markdown fences. No preamble. No explanation.
-- Use lowercase canonical field names.
-- Do NOT invent values not present in the text.
-- Extract ALL test results found.
+Return a JSON object with a single key "fields" containing
+an array of every test found. Example:
 
-Return a JSON array of objects with these fields:
-  "name"             — test name (e.g. "hemoglobin", "total leucocyte count")
-  "value"            — numeric result (e.g. "13.5", "8500")
-  "unit"             — unit of measurement (e.g. "g/dL", "cells/µL")
-  "reference_range"  — normal range if present (e.g. "12.0-16.0")
-  "collection_date"  — collection date if visible
+{
+  "fields": [
+    {"name": "hb%", "value": "10.5", "unit": "gm/dl",
+     "reference_range": "FEMALE: 11.5 - 16.4 gm/dl",
+     "collection_date": "30/10/2025"},
+    {"name": "rbc count", "value": "3.5", "unit": "10^6/uL",
+     "reference_range": "3.00 - 5.50", "collection_date": null},
+    {"name": "wbc count", "value": "8400", "unit": "/cmm",
+     "reference_range": "4000-11000", "collection_date": null}
+  ]
+}
 
-NOW EXTRACT FROM THE FOLLOWING LAB REPORT TEXT:
+Rules:
+- The response MUST be a JSON object with key "fields"
+- Extract EVERY test — CBC, differential count, ESR, PCV,
+  MCV, MCH, MCHC, platelet count, malaria parasite,
+  widal test rows — include ALL of them
+- Do not skip any test even if value is qualitative
+  (e.g. "Not Found") or abnormal
+- Use lowercase for field names
+- Return null for missing reference_range or collection_date
 """
 
 _DISCHARGE_PROMPT = """You are a medical document extraction system. Extract structured data from this discharge summary.
@@ -195,6 +207,7 @@ def _call_openai(prompt: str, text: str) -> str:
             {"role": "user", "content": text}
         ],
         temperature=0.0,
+        max_tokens=2000,
         response_format={"type": "json_object"}
     )
 
