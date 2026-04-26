@@ -30,6 +30,8 @@ class Settings(BaseSettings):
     # --- Confidence Thresholds ---
     OCR_CONFIDENCE_THRESHOLD: float = 0.85
     FIELD_CONFIDENCE_THRESHOLD: float = 0.85
+    LAB_REPORT_CONFIDENCE_THRESHOLD: float = 0.72
+    PRESCRIPTION_CONFIDENCE_THRESHOLD: float = 0.80
     FUZZY_MATCH_THRESHOLD: int = 85
 
     model_config = SettingsConfigDict(

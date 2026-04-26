@@ -16,9 +16,20 @@ logger = get_logger(__name__)
 def score_fields(
     match: MatchingResult,
     norm: NormalizationResult,
-    ocr: OCRResult
+    ocr: OCRResult,
+    job_id: str = "",
+    document_type: str = "unknown"
 ) -> list[ScoredField]:
     settings = get_settings()
+
+    # Document-type-aware threshold selection
+    if document_type == "lab_report":
+        threshold = settings.LAB_REPORT_CONFIDENCE_THRESHOLD
+    elif document_type == "prescription":
+        threshold = settings.PRESCRIPTION_CONFIDENCE_THRESHOLD
+    else:
+        threshold = settings.FIELD_CONFIDENCE_THRESHOLD
+
     scored_fields: list[ScoredField] = []
     
     # We need to map field_name back to the NormalizedField to get original unit, reference_range, etc.
@@ -41,7 +52,7 @@ def score_fields(
         final_score = round(final_score, 4)
         
         # 3. Status
-        if final_score >= settings.FIELD_CONFIDENCE_THRESHOLD:
+        if final_score >= threshold:
             status = FieldStatus.auto
             auto_count += 1
             hitl_reason = None

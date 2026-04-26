@@ -62,7 +62,7 @@ def run(job_id: str, patient_id: str, file_bytes_hex: str, document_type: str, d
         match_result = run_matching(norm_result, ocr_result, job_id=job_id)
         
         # 6. Confidence Scoring
-        scored_fields = score_fields(match_result, norm_result, ocr_result)
+        scored_fields = score_fields(match_result, norm_result, ocr_result, job_id=job_id, document_type=doc.document_type.value)
         
         # 7. Conflict Resolution & Output Assembly
         # resolver.resolve() internally performs DB upserts according to Step 10 rules.
