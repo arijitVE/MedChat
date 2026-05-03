@@ -2,6 +2,8 @@ from pathlib import Path
 import sys
 
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
 
 
 PACKAGE_ROOT = Path(__file__).resolve().parent
@@ -19,9 +21,18 @@ app = FastAPI(
     version="0.1.0",
 )
 
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
 app.include_router(pipeline_a_router)
 app.include_router(doctor_router)
 app.include_router(patient_router)
+
+app.mount("/dashboard", StaticFiles(directory="dashboard", html=True), name="dashboard")
 
 
 @app.get("/health")
