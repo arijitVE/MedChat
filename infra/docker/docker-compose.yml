@@ -39,8 +39,7 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
-    # Adjust this to point to the correct FastAPI app instance
-    command: uvicorn pipeline_a.api.routes:router --host 0.0.0.0 --port 8000
+    command: uvicorn main:app --host 0.0.0.0 --port 8000
 
   worker:
     build:

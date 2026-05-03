@@ -25,11 +25,14 @@ PyMuPDF>=1.23.0
 
 # LLM
 openai>=1.0.0
+langchain-openai
+langchain-core
 
 # Matching & NLP
 rapidfuzz>=3.6.0
 sentence-transformers>=2.3.0
 scikit-learn>=1.4.0
+qdrant-client
 
 # Logging
 structlog>=24.1.0

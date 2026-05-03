@@ -15,3 +15,8 @@ htmlcov/
 .vscode/
 .idea/
 *.log
+
+# Local databases and storage
+qdrant_storage/
+*.db
+*.sqlite3

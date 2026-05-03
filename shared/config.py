@@ -24,6 +24,10 @@ class Settings(BaseSettings):
     # --- Database ---
     DATABASE_URL: str = "postgresql://hdmis_user:hdmis_pass@localhost:5432/hdmis_db"
 
+    # --- Qdrant ---
+    QDRANT_URL: str | None = None
+    QDRANT_STORAGE_PATH: str = "./qdrant_storage"
+
     # --- Redis / Celery ---
     REDIS_URL: str = "redis://localhost:6379/0"
 
