@@ -62,10 +62,10 @@ class DocumentJob(Base):
     )
 
     # ------ Timestamps ------
-    uploaded_at: Mapped[datetime] = mapped_column(
+    uploaded_at: Mapped[Optional[datetime]] = mapped_column(
         DateTime(timezone=True),
-        nullable=False,
-        default=lambda: datetime.now(timezone.utc),
+        nullable=True,
+        default=None,
         comment="When the document was uploaded",
     )
     processed_at: Mapped[Optional[datetime]] = mapped_column(
@@ -104,34 +104,37 @@ class DocumentJob(Base):
 def upsert_job(db: Session, job_id: str, **fields: Any) -> None:
     """Insert or update a document_jobs row keyed on job_id.
 
-    Uses PostgreSQL INSERT ... ON CONFLICT (job_id) DO UPDATE so that
-    Celery retries never create duplicate rows.
-
-    Args:
-        db: SQLAlchemy session.
-        job_id: The job's unique identifier (upsert key).
-        **fields: Any column values to set. Supports all DocumentJob columns
-                  except job_id. Common keys:
-                    status, patient_id, document_type, file_name,
-                    hitl_required, hitl_reasons, structured_text_for_embedding,
-                    processed_at, error_message, ocr_latency_ms, llm_latency_ms
-
-    Example:
-        >>> upsert_job(db, "abc-123", status="processing")
-        >>> upsert_job(db, "abc-123", status="failed", error_message="OCR timeout")
+    patient_id, document_type, and file_name are INSERT-ONLY — they are
+    never overwritten on conflict. This allows Pipeline A to call upsert_job
+    with only status fields without wiping out patient_id.
     """
+    INSERT_ONLY_COLUMNS = {"patient_id", "document_type", "file_name"}
+
+    # Always include job_id in insert
     insert_values: dict[str, Any] = {"job_id": job_id, **fields}
 
-    # Build the SET clause for ON CONFLICT — update every field that was passed
-    update_values: dict[str, Any] = {k: v for k, v in fields.items()}
+    # UPDATE clause: only columns explicitly passed AND not insert-only
+    update_values: dict[str, Any] = {
+        k: v for k, v in fields.items()
+        if k not in INSERT_ONLY_COLUMNS
+    }
 
-    stmt = (
-        pg_insert(DocumentJob)
-        .values(**insert_values)
-        .on_conflict_do_update(
-            index_elements=["job_id"],
-            set_=update_values,
+    if not update_values:
+        # Nothing to update — use DO NOTHING to avoid constraint violation
+        stmt = (
+            pg_insert(DocumentJob)
+            .values(**insert_values)
+            .on_conflict_do_nothing(index_elements=["job_id"])
         )
-    )
+    else:
+        stmt = (
+            pg_insert(DocumentJob)
+            .values(**insert_values)
+            .on_conflict_do_update(
+                index_elements=["job_id"],
+                set_=update_values,
+            )
+        )
+
     db.execute(stmt)
     db.flush()

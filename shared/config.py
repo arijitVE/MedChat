@@ -24,6 +24,15 @@ class Settings(BaseSettings):
     # --- Database ---
     DATABASE_URL: str = "postgresql://hdmis_user:hdmis_pass@localhost:5432/hdmis_db"
 
+    # --- Product Layer Auth ---
+    SECRET_KEY: str = "change-me-minimum-32-characters-secret"
+    JWT_ALGORITHM: str = "HS256"
+    JWT_EXPIRY_MINUTES: int = 1440
+    JWT_REFRESH_EXPIRY_DAYS: int = 7
+    RATE_LIMIT_STORAGE_URI: str = "memory://"
+    STORAGE_PATH: str = "./storage"
+    MAX_FILE_SIZE_MB: int = 50
+
     # --- Qdrant ---
     QDRANT_URL: str | None = None
     QDRANT_STORAGE_PATH: str = "./qdrant_storage"

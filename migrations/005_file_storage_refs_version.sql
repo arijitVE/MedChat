@@ -1,0 +1,2 @@
+ALTER TABLE file_storage_refs
+    ADD COLUMN IF NOT EXISTS version INTEGER NOT NULL DEFAULT 1;
