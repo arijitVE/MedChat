@@ -1,0 +1,95 @@
+import { useMutation } from '@tanstack/react-query';
+import { authApi } from '../api/auth';
+import { normalizeApiError } from '../lib/apiError';
+import { useAuthStore } from '../store/authStore';
+import type { BackendTokenResponse, LoginRequest, SignupRequest, TokenResponse, User } from '../types/auth';
+import type { ApiError } from '../lib/apiError';
+
+export function useAuth() {
+  return useAuthStore();
+}
+
+function normalizeSignupUser(response: BackendTokenResponse, data: SignupRequest): User {
+  return {
+    user_id: response.user_id,
+    role: response.role,
+    email: data.email,
+    full_name: data.full_name,
+    patient_uid: data.claim_patient_uid ?? undefined,
+    license_number: data.license_number ?? undefined,
+    specialization: data.specialization ?? undefined,
+  };
+}
+
+function normalizeLoginUser(response: BackendTokenResponse, data: LoginRequest, currentUser: User | null): User {
+  const matchingUser = currentUser?.user_id === response.user_id ? currentUser : null;
+
+  return {
+    user_id: response.user_id,
+    role: response.role,
+    email: matchingUser?.email ?? data.email,
+    full_name: matchingUser?.full_name ?? data.email,
+    patient_uid: matchingUser?.patient_uid,
+    license_number: matchingUser?.license_number,
+    specialization: matchingUser?.specialization,
+  };
+}
+
+function normalizeTokenResponse(response: BackendTokenResponse, user: User): TokenResponse {
+  return {
+    access_token: response.access_token,
+    token_type: response.token_type,
+    user,
+  };
+}
+
+export function useLogin() {
+  const setAuth = useAuthStore((state) => state.setAuth);
+
+  return useMutation<TokenResponse, ApiError, LoginRequest>({
+    mutationFn: async (data) => {
+      try {
+        const response = await authApi.login(data);
+        const user = normalizeLoginUser(response.data, data, useAuthStore.getState().user);
+        setAuth(response.data.access_token, user);
+        return normalizeTokenResponse(response.data, user);
+      } catch (error) {
+        throw normalizeApiError(error);
+      }
+    },
+  });
+}
+
+export function useSignup() {
+  const setAuth = useAuthStore((state) => state.setAuth);
+
+  return useMutation<TokenResponse, ApiError, SignupRequest>({
+    mutationFn: async (data) => {
+      try {
+        const response = await authApi.signup(data);
+        const user = normalizeSignupUser(response.data, data);
+        setAuth(response.data.access_token, user);
+        return normalizeTokenResponse(response.data, user);
+      } catch (error) {
+        throw normalizeApiError(error);
+      }
+    },
+  });
+}
+
+export function useLogout() {
+  const logout = useAuthStore((state) => state.logout);
+
+  return useMutation<void, ApiError>({
+    mutationFn: async () => {
+      try {
+        await authApi.logout();
+      } catch (error) {
+        throw normalizeApiError(error);
+      }
+    },
+    onSettled: () => {
+      logout();
+    },
+  });
+}
