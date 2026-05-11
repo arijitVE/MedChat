@@ -27,7 +27,12 @@ export interface PatientProfile {
   sex: string | null;
 }
 
-export interface AssignmentRequest {
+export interface PatientAssignmentRequest {
   doctor_id: string;
-  patient_id: string;
 }
+
+export interface DoctorAssignmentInviteRequest {
+  patient_uid: string;
+}
+
+export type AssignmentRequest = PatientAssignmentRequest | DoctorAssignmentInviteRequest;

@@ -4,7 +4,6 @@ export const queryKeys = {
     list: (filters?: object) => ['reports', filters] as const,
     detail: (id: string) => ['reports', id] as const,
     fields: (id: string) => ['reports', id, 'fields'] as const,
-    rawFile: (id: string) => ['reports', id, 'raw-file'] as const,
     forPatient: (patientId: string) => ['reports', 'patient', patientId] as const,
     eda: (id: string) => ['reports', id, 'eda'] as const,
   },

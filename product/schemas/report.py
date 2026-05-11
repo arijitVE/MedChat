@@ -34,6 +34,7 @@ class ReportStatusResponse(BaseModel):
         "patient_verified",
         "doctor_verified",
         "fully_verified",
+        "failed",
     ]
     released_to_patient: bool = False
     first_uploaded_at: datetime

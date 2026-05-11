@@ -43,6 +43,15 @@ function normalizeTokenResponse(response: BackendTokenResponse, user: User): Tok
   };
 }
 
+function storeRefreshToken(refreshToken?: string) {
+  if (refreshToken) {
+    localStorage.setItem('refresh_token', refreshToken);
+    return;
+  }
+
+  localStorage.removeItem('refresh_token');
+}
+
 export function useLogin() {
   const setAuth = useAuthStore((state) => state.setAuth);
 
@@ -51,6 +60,7 @@ export function useLogin() {
       try {
         const response = await authApi.login(data);
         const user = normalizeLoginUser(response.data, data, useAuthStore.getState().user);
+        storeRefreshToken(response.data.refresh_token);
         setAuth(response.data.access_token, user);
         return normalizeTokenResponse(response.data, user);
       } catch (error) {
@@ -68,6 +78,7 @@ export function useSignup() {
       try {
         const response = await authApi.signup(data);
         const user = normalizeSignupUser(response.data, data);
+        storeRefreshToken(response.data.refresh_token);
         setAuth(response.data.access_token, user);
         return normalizeTokenResponse(response.data, user);
       } catch (error) {

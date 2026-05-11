@@ -5,7 +5,8 @@ export type LifecycleStatus =
   | 'hitl_required'
   | 'patient_verified'
   | 'doctor_verified'
-  | 'fully_verified';
+  | 'fully_verified'
+  | 'failed';
 
 export type FieldPipelineStatus = 'auto' | 'hitl';
 
@@ -34,6 +35,13 @@ export interface DuplicateWarning {
   existing_uploaded_at: string;
   uploaded_by_role: 'doctor' | 'patient';
   message: string;
+}
+
+export interface UploadResponse {
+  report_id: string;
+  status: string;
+  patient_uid: string | null;
+  duplicate_warning: DuplicateWarning | null;
 }
 
 export interface ExactDuplicateError {

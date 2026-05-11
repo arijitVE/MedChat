@@ -8,6 +8,7 @@ import {
   Upload,
   Users,
   ClipboardList,
+  User as UserIcon,
 } from 'lucide-react';
 import { useAuthStore } from '../../store/authStore';
 import { useUIStore } from '../../store/uiStore';
@@ -32,6 +33,7 @@ const linksByRole: Record<User['role'], SidebarLink[]> = {
     { to: '/patient/reports', label: 'Reports', icon: FileText },
     { to: '/patient/trends', label: 'Trends', icon: BarChart3 },
     { to: '/patient/chat', label: 'Chat', icon: MessageSquare },
+    { to: '/patient/account', label: 'Account', icon: UserIcon },
   ],
   admin: [
     { to: '/admin', label: 'Dashboard', icon: Home },

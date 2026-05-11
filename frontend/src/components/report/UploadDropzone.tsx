@@ -5,16 +5,18 @@ import { Button } from '../ui/Button';
 import { normalizeApiError } from '../../lib/apiError';
 import { uploadSchema } from '../../validation/uploadSchemas';
 import type { ApiError } from '../../lib/apiError';
-import type { Report } from '../../types/report';
+import type { Report, UploadResponse } from '../../types/report';
+
+type UploadResult = Report | UploadResponse;
 
 interface UploadDropzoneProps extends Omit<InputHTMLAttributes<HTMLInputElement>, 'type' | 'onChange' | 'onError' | 'onProgress'> {
   patientUid: string;
   disabled?: boolean;
   onFileSelected?: (file: File) => void;
-  onUpload?: (file: File, options: { force?: boolean; onProgress: (progress: number) => void }) => Promise<Report>;
+  onUpload?: (file: File, options: { force?: boolean; onProgress: (progress: number) => void }) => Promise<UploadResult>;
   onProgress?: (progress: number) => void;
   onDuplicate?: (error: ApiError) => void;
-  onSuccess?: (report: Report) => void;
+  onSuccess?: (report: UploadResult) => void;
   onError?: (error: ApiError) => void;
   className?: string;
 }
@@ -60,7 +62,7 @@ export function UploadDropzone({
       onSuccess?.(report);
     } catch (error) {
       const apiError = normalizeApiError(error);
-      if (apiError.code === 'DUPLICATE_EXACT') {
+      if (apiError.code === 'DUPLICATE_EXACT' && onDuplicate) {
         onDuplicate?.(apiError);
       } else {
         onError?.(apiError);

@@ -36,6 +36,11 @@ export interface BackendTokenResponse {
   token_type: string;
   user_id: string;
   role: User['role'];
+  refresh_token?: string;
+}
+
+export interface RefreshTokenRequest {
+  refresh_token: string;
 }
 
 export interface SignupRequest {

@@ -14,6 +14,7 @@ const statusConfig: Record<LifecycleStatus, { label: string; variant: 'auto' | '
   patient_verified: { label: 'Patient verified', variant: 'verified' },
   doctor_verified: { label: 'Doctor verified', variant: 'final' },
   fully_verified: { label: 'Fully verified', variant: 'final' },
+  failed: { label: 'Failed', variant: 'hitl' },
 };
 
 export function ReportStatusBadge({ status, className = '' }: ReportStatusBadgeProps) {

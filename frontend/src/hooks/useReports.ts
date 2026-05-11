@@ -3,7 +3,7 @@ import { reportsApi } from '../api/reports';
 import { normalizeApiError } from '../lib/apiError';
 import { queryKeys, staleTime } from '../lib/queryKeys';
 import type { ApiError } from '../lib/apiError';
-import type { Report } from '../types/report';
+import type { Report, UploadResponse } from '../types/report';
 
 type UploadVariables = {
   formData: FormData;
@@ -20,19 +20,8 @@ type MyReportsFilters = {
   document_type?: string;
 };
 
-export function useDoctorDashboard() {
-  return useQuery({
-    queryKey: queryKeys.doctor.dashboard,
-    queryFn: async () => {
-      try {
-        const response = await reportsApi.getDashboard();
-        return response.data;
-      } catch (error) {
-        throw normalizeApiError(error);
-      }
-    },
-    staleTime: staleTime.reportDetail,
-  });
+function isReportProcessing(report: Report): boolean {
+  return report.lifecycle_status === 'processing' || report.lifecycle_status === 'uploaded';
 }
 
 export function useReportDetail(reportId: string) {
@@ -48,6 +37,10 @@ export function useReportDetail(reportId: string) {
     },
     enabled: Boolean(reportId),
     staleTime: staleTime.reportDetail,
+    refetchInterval: (query) => {
+      const status = query.state.data?.lifecycle_status;
+      return status === 'processing' || status === 'uploaded' ? 8000 : false;
+    },
   });
 }
 
@@ -67,38 +60,6 @@ export function useReportFields(reportId: string) {
   });
 }
 
-export function useReportRawFile(reportId: string) {
-  return useQuery({
-    queryKey: queryKeys.reports.rawFile(reportId),
-    queryFn: async ({ signal }) => {
-      try {
-        const response = await reportsApi.getRawFile(reportId, { signal });
-        return response.data;
-      } catch (error) {
-        throw normalizeApiError(error);
-      }
-    },
-    enabled: Boolean(reportId),
-    staleTime: staleTime.reportDetail,
-  });
-}
-
-export function useDoctorPatientReports(patientId: string) {
-  return useQuery({
-    queryKey: queryKeys.reports.forPatient(patientId),
-    queryFn: async () => {
-      try {
-        const response = await reportsApi.getDoctorPatientReports(patientId);
-        return response.data;
-      } catch (error) {
-        throw normalizeApiError(error);
-      }
-    },
-    enabled: Boolean(patientId),
-    staleTime: staleTime.reportDetail,
-  });
-}
-
 export function usePatientSearch(query: string) {
   return useQuery({
     queryKey: queryKeys.patients.search(query),
@@ -115,21 +76,6 @@ export function usePatientSearch(query: string) {
   });
 }
 
-export function useDoctorHITLQueue(myPatientsOnly = false) {
-  return useQuery({
-    queryKey: queryKeys.hitlQueue(myPatientsOnly),
-    queryFn: async () => {
-      try {
-        const response = await reportsApi.getHITLQueue(myPatientsOnly);
-        return response.data;
-      } catch (error) {
-        throw normalizeApiError(error);
-      }
-    },
-    staleTime: staleTime.hitlQueue,
-  });
-}
-
 export function useMyReports(filters?: MyReportsFilters) {
   return useQuery({
     queryKey: queryKeys.reports.list(filters),
@@ -142,6 +88,10 @@ export function useMyReports(filters?: MyReportsFilters) {
       }
     },
     staleTime: staleTime.reportDetail,
+    refetchInterval: (query) => {
+      const reports = query.state.data ?? [];
+      return reports.some(isReportProcessing) ? 10000 : false;
+    },
   });
 }
 
@@ -158,6 +108,10 @@ export function useMyReport(reportId: string) {
     },
     enabled: Boolean(reportId),
     staleTime: staleTime.reportDetail,
+    refetchInterval: (query) => {
+      const status = query.state.data?.lifecycle_status;
+      return status === 'processing' || status === 'uploaded' ? 8000 : false;
+    },
   });
 }
 
@@ -177,29 +131,13 @@ export function useMyReportFields(reportId: string) {
   });
 }
 
-export function useMyReportRawFile(reportId: string) {
-  return useQuery({
-    queryKey: queryKeys.reports.rawFile(reportId),
-    queryFn: async ({ signal }) => {
-      try {
-        const response = await reportsApi.getMyReportRawFile(reportId, { signal });
-        return response.data;
-      } catch (error) {
-        throw normalizeApiError(error);
-      }
-    },
-    enabled: Boolean(reportId),
-    staleTime: staleTime.reportDetail,
-  });
-}
-
 export function useUploadReport() {
   const queryClient = useQueryClient();
 
   return useMutation<Report, ApiError, UploadVariables>({
-    mutationFn: async ({ formData, force }) => {
+    mutationFn: async ({ formData }) => {
       try {
-        const response = await reportsApi.upload(formData, force);
+        const response = await reportsApi.upload(formData);
         return response.data;
       } catch (error) {
         throw normalizeApiError(error);
@@ -214,11 +152,10 @@ export function useUploadReport() {
 export function usePatientUploadReport() {
   const queryClient = useQueryClient();
 
-  return useMutation<Report, ApiError, UploadVariables>({
-    mutationFn: async ({ formData, force }) => {
+  return useMutation<UploadResponse, ApiError, FormData>({
+    mutationFn: (formData: FormData) => {
       try {
-        const response = await reportsApi.patientUpload(formData, force);
-        return response.data;
+        return reportsApi.patientUpload(formData).then((response) => response.data);
       } catch (error) {
         throw normalizeApiError(error);
       }
@@ -252,9 +189,9 @@ export function useReuploadReport() {
   const queryClient = useQueryClient();
 
   return useMutation<Report, ApiError, ReuploadVariables>({
-    mutationFn: async ({ reportId, formData, force }) => {
+    mutationFn: async ({ reportId, formData }) => {
       try {
-        const response = await reportsApi.reupload(reportId, formData, force);
+        const response = await reportsApi.reupload(reportId, formData);
         return response.data;
       } catch (error) {
         throw normalizeApiError(error);
@@ -263,7 +200,6 @@ export function useReuploadReport() {
     onSuccess: (report) => {
       queryClient.invalidateQueries({ queryKey: queryKeys.reports.detail(report.report_id) });
       queryClient.invalidateQueries({ queryKey: queryKeys.reports.fields(report.report_id) });
-      queryClient.invalidateQueries({ queryKey: queryKeys.reports.rawFile(report.report_id) });
       queryClient.invalidateQueries({ queryKey: queryKeys.reports.eda(report.report_id) });
       queryClient.invalidateQueries({ queryKey: queryKeys.reports.all });
     },
@@ -274,9 +210,9 @@ export function usePatientReuploadReport() {
   const queryClient = useQueryClient();
 
   return useMutation<Report, ApiError, ReuploadVariables>({
-    mutationFn: async ({ reportId, formData, force }) => {
+    mutationFn: async ({ reportId, formData }) => {
       try {
-        const response = await reportsApi.patientReupload(reportId, formData, force);
+        const response = await reportsApi.patientReupload(reportId, formData);
         return response.data;
       } catch (error) {
         throw normalizeApiError(error);
@@ -285,7 +221,6 @@ export function usePatientReuploadReport() {
     onSuccess: (report) => {
       queryClient.invalidateQueries({ queryKey: queryKeys.reports.detail(report.report_id) });
       queryClient.invalidateQueries({ queryKey: queryKeys.reports.fields(report.report_id) });
-      queryClient.invalidateQueries({ queryKey: queryKeys.reports.rawFile(report.report_id) });
       queryClient.invalidateQueries({ queryKey: queryKeys.reports.eda(report.report_id) });
       queryClient.invalidateQueries({ queryKey: queryKeys.reports.all });
     },

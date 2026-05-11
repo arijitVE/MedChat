@@ -3,8 +3,12 @@ import { assignmentsApi } from '../api/assignments';
 import { normalizeApiError } from '../lib/apiError';
 import { queryKeys, staleTime } from '../lib/queryKeys';
 import type { ApiError } from '../lib/apiError';
-import type { Assignment, AssignmentRequest, AssignmentStatus } from '../types/assignment';
-import type { PaginationParams } from '../types/common';
+import type {
+  Assignment,
+  AssignmentStatus,
+  DoctorAssignmentInviteRequest,
+  PatientAssignmentRequest,
+} from '../types/assignment';
 
 type AssignmentActionVariables = {
   assignmentId: string;
@@ -90,41 +94,10 @@ export function usePatientAssignments() {
   });
 }
 
-export function useDoctorPatients(params?: PaginationParams) {
-  return useQuery({
-    queryKey: [...queryKeys.patients.all, params] as const,
-    queryFn: async () => {
-      try {
-        const response = await assignmentsApi.getDoctorPatients(params);
-        return response.data;
-      } catch (error) {
-        throw normalizeApiError(error);
-      }
-    },
-    staleTime: staleTime.patientList,
-  });
-}
-
-export function usePatientProfile(patientId: string) {
-  return useQuery({
-    queryKey: queryKeys.patients.profile(patientId),
-    queryFn: async () => {
-      try {
-        const response = await assignmentsApi.getPatientProfile(patientId);
-        return response.data;
-      } catch (error) {
-        throw normalizeApiError(error);
-      }
-    },
-    enabled: Boolean(patientId),
-    staleTime: staleTime.patientList,
-  });
-}
-
 export function useCreateAssignment() {
   const queryClient = useQueryClient();
 
-  return useMutation<Assignment, ApiError, AssignmentRequest>({
+  return useMutation<Assignment, ApiError, DoctorAssignmentInviteRequest>({
     mutationFn: async (data) => {
       try {
         const response = await assignmentsApi.createAssignment(data);
@@ -143,7 +116,7 @@ export function useCreateAssignment() {
 export function useCreatePatientAssignment() {
   const queryClient = useQueryClient();
 
-  return useMutation<Assignment, ApiError, AssignmentRequest>({
+  return useMutation<Assignment, ApiError, PatientAssignmentRequest>({
     mutationFn: async (data) => {
       try {
         const response = await assignmentsApi.createPatientAssignment(data);
@@ -154,26 +127,6 @@ export function useCreatePatientAssignment() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.assignments.patient });
-    },
-  });
-}
-
-export function useAdminCreateAssignment() {
-  const queryClient = useQueryClient();
-
-  return useMutation<Assignment, ApiError, AssignmentRequest>({
-    mutationFn: async (data) => {
-      try {
-        const response = await assignmentsApi.adminCreateAssignment(data);
-        return response.data;
-      } catch (error) {
-        throw normalizeApiError(error);
-      }
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: queryKeys.assignments.doctor });
-      queryClient.invalidateQueries({ queryKey: queryKeys.assignments.patient });
-      queryClient.invalidateQueries({ queryKey: queryKeys.patients.all });
     },
   });
 }

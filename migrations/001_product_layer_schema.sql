@@ -54,7 +54,8 @@ CREATE TABLE IF NOT EXISTS reports (
                            CHECK (lifecycle_status IN (
                                'uploaded', 'processing', 'auto_approved',
                                'hitl_required', 'patient_verified',
-                               'doctor_verified', 'fully_verified'
+                               'doctor_verified', 'fully_verified',
+                               'failed'
                            )),
     released_to_patient    BOOLEAN DEFAULT FALSE,
     first_uploaded_at      TIMESTAMPTZ DEFAULT NOW(),

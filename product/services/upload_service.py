@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from json import dumps
 from pathlib import Path
+from traceback import format_exc
 from uuid import UUID, uuid4
 
 from fastapi import BackgroundTasks, HTTPException, UploadFile
@@ -14,6 +15,7 @@ from product.services.assignment_service import verify_doctor_patient_access
 from product.utils.file_storage import compute_file_hash, save_file
 from shared.config import get_settings
 from shared.db.session import SessionLocal
+from shared.schemas.report import DocumentType
 
 
 ALLOWED_MIME_TYPES = {
@@ -22,6 +24,8 @@ ALLOWED_MIME_TYPES = {
     "image/png",
     "image/tiff",
 }
+
+VALID_PIPELINE_DOCUMENT_TYPES = {document_type.value for document_type in DocumentType}
 
 
 def _detect_mime(file_bytes: bytes) -> str:
@@ -43,6 +47,12 @@ def _extension_for_mime(mime: str) -> str:
         "image/png": ".png",
         "image/tiff": ".tiff",
     }[mime]
+
+
+def _pipeline_document_type(inferred_document_type: str | None = None) -> str:
+    if inferred_document_type in VALID_PIPELINE_DOCUMENT_TYPES:
+        return inferred_document_type
+    return DocumentType.unknown.value
 
 
 def _write_audit(
@@ -358,6 +368,33 @@ def _upsert_document_job(
         },
     )
 
+
+def _mark_pipeline_a_failed(db: Session, job_id: str, traceback_text: str) -> None:
+    db.execute(
+        text(
+            """
+            UPDATE document_jobs
+            SET status = 'failed',
+                error_message = :error_message,
+                processed_at = NOW()
+            WHERE job_id = :job_id
+            """
+        ),
+        {"job_id": job_id, "error_message": traceback_text},
+    )
+    db.execute(
+        text(
+            """
+            UPDATE reports
+            SET lifecycle_status = 'failed',
+                last_edited_at = NOW()
+            WHERE job_id = :job_id
+            """
+        ),
+        {"job_id": job_id},
+    )
+
+
 def on_pipeline_a_complete(
     job_id: str,
     patient_id: str,
@@ -598,6 +635,7 @@ def run_pipeline_a_task(
     engine = create_engine(db_url)
     _LocalSession = sessionmaker(bind=engine)
     db = _LocalSession()
+    document_type = _pipeline_document_type(document_type)
     try:
         # Pre-create document_jobs row with all NOT NULL columns so that
         # Pipeline A's internal upsert_job(status='processing') hits the
@@ -642,11 +680,24 @@ def run_pipeline_a_task(
         )
         db.commit()
     except Exception as e:
+        traceback_text = format_exc()
         db.rollback()
+        try:
+            _mark_pipeline_a_failed(db, job_id, traceback_text)
+            db.commit()
+        except Exception as failure_update_error:
+            db.rollback()
+            logger.error(
+                "pipeline_a_failure_persist_failed",
+                job_id=job_id,
+                error=str(failure_update_error),
+                exc_info=True,
+            )
         logger.error(
             "pipeline_a_background_task_failed",
             job_id=job_id,
             error=str(e),
+            exc_info=True,
         )
         if raise_on_error:
             raise
@@ -736,7 +787,8 @@ async def upload_report(
     upload_count = 1
     original_name = f"original{_extension_for_mime(upload_document_type)}"
     file_path = save_file(str(patient_id), str(report_id), upload_count, original_name, file_bytes)
-    _upsert_document_job(db, job_id, patient_id, upload_document_type, file.filename or original_name)
+    pipeline_document_type = _pipeline_document_type()
+    _upsert_document_job(db, job_id, patient_id, pipeline_document_type, file.filename or original_name)
 
     db.execute(
         text(
@@ -816,7 +868,7 @@ async def upload_report(
             job_id=job_id,
             patient_id=str(patient_id),
             file_bytes_hex=file_bytes.hex(),
-            document_type=upload_document_type,
+            document_type=pipeline_document_type,
             db_url=settings.DATABASE_URL,
         )
 
@@ -843,7 +895,7 @@ async def reupload_report(
         text(
             """
             SELECT report_id, job_id, patient_id, uploaded_by, doctor_id,
-                   upload_count, lifecycle_status
+                   upload_count, lifecycle_status, inferred_document_type
             FROM reports
             WHERE report_id = :report_id
             """
@@ -933,6 +985,8 @@ async def reupload_report(
     new_count = int(report["upload_count"]) + 1
     original_name = f"original{_extension_for_mime(upload_document_type)}"
     file_path = save_file(str(report["patient_id"]), str(report_id), new_count, original_name, file_bytes)
+    pipeline_document_type = _pipeline_document_type(report["inferred_document_type"])
+    _upsert_document_job(db, report["job_id"], report["patient_id"], pipeline_document_type, file.filename or original_name)
     db.execute(text("DELETE FROM field_verifications WHERE report_id = :report_id"), {"report_id": report_id})
     db.execute(
         text(
@@ -1002,7 +1056,7 @@ async def reupload_report(
             job_id=report["job_id"],
             patient_id=str(report["patient_id"]),
             file_bytes_hex=file_bytes.hex(),
-            document_type=upload_document_type,
+            document_type=pipeline_document_type,
             db_url=settings.DATABASE_URL,
         )
     response = {"report_id": str(report_id), "status": "processing"}

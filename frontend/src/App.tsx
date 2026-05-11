@@ -20,6 +20,7 @@ const PatientListPage = lazy(() => import('./pages/doctor/PatientListPage'));
 const ReportDetailPage = lazy(() => import('./pages/doctor/ReportDetailPage'));
 const UploadPage = lazy(() => import('./pages/doctor/UploadPage'));
 const MyReportsPage = lazy(() => import('./pages/patient/MyReportsPage'));
+const AccountPage = lazy(() => import('./pages/patient/AccountPage'));
 const PatientChatPage = lazy(() => import('./pages/patient/PatientChatPage'));
 const PatientDashboard = lazy(() => import('./pages/patient/PatientDashboard'));
 const PatientReportViewPage = lazy(() => import('./pages/patient/ReportViewPage'));
@@ -81,6 +82,7 @@ function App() {
             <Route path="/patient/reports/:reportId" element={<LazyRoute><PatientReportViewPage /></LazyRoute>} />
             <Route path="/patient/trends" element={<LazyRoute><PatientTrendsPage /></LazyRoute>} />
             <Route path="/patient/chat" element={<LazyRoute><PatientChatPage /></LazyRoute>} />
+            <Route path="/patient/account" element={<LazyRoute><AccountPage /></LazyRoute>} />
           </Route>
         </Route>
 

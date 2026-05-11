@@ -22,6 +22,11 @@ export const intelligenceApi = {
       params: { field_name: fieldName },
       signal: options?.signal,
     }),
+  fetchPatientTrend: (patientId: string, fieldName: string, options?: RequestOptions) =>
+    apiClient.get<TrendResult>(`/doctor/patients/${patientId}/trend`, {
+      params: { field_name: fieldName },
+      signal: options?.signal,
+    }),
   getAnalytics: (patientId: string, options?: RequestOptions) =>
     apiClient.get<AnalyticsResult>(`/doctor/patients/${patientId}/analytics`, {
       signal: options?.signal,
@@ -31,6 +36,11 @@ export const intelligenceApi = {
       signal: options?.signal,
     }),
   getMyTrends: (fieldName: string, options?: RequestOptions) =>
+    apiClient.get<TrendResult>('/patient/trends', {
+      params: { field_name: fieldName },
+      signal: options?.signal,
+    }),
+  fetchMyTrend: (fieldName: string, options?: RequestOptions) =>
     apiClient.get<TrendResult>('/patient/trends', {
       params: { field_name: fieldName },
       signal: options?.signal,

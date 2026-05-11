@@ -1,7 +1,6 @@
 import { useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { CheckCircle2, Lock } from 'lucide-react';
-import { FileViewer } from '../../components/report/FileViewer';
 import { ReportStatusBadge } from '../../components/report/ReportStatusBadge';
 import { Badge } from '../../components/ui/Badge';
 import { Button } from '../../components/ui/Button';
@@ -9,11 +8,17 @@ import { Card } from '../../components/ui/Card';
 import { Modal } from '../../components/ui/Modal';
 import { Skeleton } from '../../components/ui/Skeleton';
 import { RetryPanel } from '../../components/feedback/RetryPanel';
-import { useMyReport, useMyReportFields } from '../../hooks/useReports';
+import { useMyReport } from '../../hooks/useReports';
+import { useMyEDA } from '../../hooks/useIntelligence';
 import { usePatientVerifyField } from '../../hooks/useVerification';
 import { normalizeApiError } from '../../lib/apiError';
 import { sanitizeFilename } from '../../lib/sanitize';
-import type { ReportField } from '../../types/report';
+import type { Report, ReportField } from '../../types/report';
+
+type PatientReportDetail = {
+  report: Report;
+  fields: ReportField[];
+};
 
 function FieldCard({
   field,
@@ -93,9 +98,17 @@ function PatientVerifyModal({
 export default function ReportViewPage() {
   const { reportId = '' } = useParams();
   const report = useMyReport(reportId);
-  const fields = useMyReportFields(reportId);
   const verifyField = usePatientVerifyField();
   const [fieldToVerify, setFieldToVerify] = useState<ReportField | null>(null);
+  const reportDetail = report.data as unknown as PatientReportDetail | undefined;
+  const reportData = reportDetail?.report;
+  const fieldsFromDetail = reportDetail?.fields ?? [];
+  const shouldLoadEda = Boolean(
+    reportData &&
+      reportData?.lifecycle_status !== 'uploaded' &&
+      reportData?.lifecycle_status !== 'processing',
+  );
+  const eda = useMyEDA(reportId, shouldLoadEda);
 
   const handleVerify = (_reportId: string, field: ReportField) => {
     setFieldToVerify(field);
@@ -121,7 +134,12 @@ export default function ReportViewPage() {
     return <RetryPanel onRetry={() => void report.refetch()} message={normalizeApiError(report.error).message} />;
   }
 
-  const reportData = report.data;
+  if (!reportData && !report.isLoading && !report.isError) {
+    return <RetryPanel message="Report not found" onRetry={() => void report.refetch()} />;
+  }
+
+  const edaFields = eda.data?.chart_json.data.fields ?? [];
+  const edaValues = eda.data?.chart_json.data.values ?? [];
 
   return (
     <div className="space-y-6">
@@ -142,24 +160,30 @@ export default function ReportViewPage() {
         )}
       </Card>
 
-      <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_minmax(360px,1fr)]">
-        {fields.isError ? (
-          <RetryPanel onRetry={() => void fields.refetch()} message={normalizeApiError(fields.error).message} />
-        ) : fields.isLoading ? (
+      <div className="grid gap-6">
+        {report.isLoading ? (
           <Skeleton variant="card" rows={6} />
         ) : (
           <div className="grid gap-3">
-            {(fields.data ?? []).map((field) => (
+            {fieldsFromDetail.map((field) => (
               <FieldCard key={field.field_name} field={field} reportId={reportId} onVerify={handleVerify} />
             ))}
           </div>
         )}
-        {reportData ? (
-          <FileViewer reportId={reportId} role="patient" mimeType={reportData.file_mime} />
-        ) : (
-          <Skeleton variant="file" />
-        )}
       </div>
+      {edaFields.length > 0 ? (
+        <Card>
+          <h2 className="text-base font-semibold text-clinical-text-primary">Report overview</h2>
+          <dl className="mt-3 grid gap-2 text-sm sm:grid-cols-2">
+            {edaFields.map((field, index) => (
+              <div key={`${field}-${index}`} className="rounded-md border border-clinical-border px-3 py-2">
+                <dt className="font-medium text-clinical-text-primary">{field}</dt>
+                <dd className="mt-1 text-clinical-text-secondary">{edaValues[index] ?? '-'}</dd>
+              </div>
+            ))}
+          </dl>
+        </Card>
+      ) : null}
       <PatientVerifyModal
         field={fieldToVerify}
         isVerifying={verifyField.isPending}

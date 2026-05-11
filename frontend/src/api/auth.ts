@@ -1,5 +1,5 @@
 import { apiClient } from './client';
-import type { BackendTokenResponse, LoginRequest, SignupRequest } from '../types/auth';
+import type { BackendTokenResponse, LoginRequest, RefreshTokenRequest, SignupRequest } from '../types/auth';
 
 export const authApi = {
   signup: (data: SignupRequest) =>
@@ -8,6 +8,8 @@ export const authApi = {
     apiClient.post<BackendTokenResponse>('/auth/login', data),
   logout: () =>
     apiClient.post<void>('/auth/logout'),
-  refresh: () =>
-    apiClient.post<BackendTokenResponse>('/auth/refresh'),
+  refresh: (data: RefreshTokenRequest) =>
+    apiClient.post<BackendTokenResponse>('/auth/refresh', data),
 };
+
+export const logout = () => authApi.logout().then((response) => response.data);

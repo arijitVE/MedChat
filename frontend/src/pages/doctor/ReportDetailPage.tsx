@@ -2,7 +2,6 @@ import { useParams } from 'react-router-dom';
 import { AlertTriangle } from 'lucide-react';
 import { RetryPanel } from '../../components/feedback/RetryPanel';
 import { FieldsTable } from '../../components/report/FieldsTable';
-import { FileViewer } from '../../components/report/FileViewer';
 import { ReportStatusBadge } from '../../components/report/ReportStatusBadge';
 import { Button } from '../../components/ui/Button';
 import { Card } from '../../components/ui/Card';
@@ -80,7 +79,7 @@ export default function ReportDetailPage() {
         </div>
       ) : null}
 
-      <div className="grid gap-6 xl:grid-cols-[minmax(0,3fr)_minmax(360px,2fr)]">
+      <div className="grid gap-6">
         {fields.isError ? (
           <RetryPanel onRetry={() => void fields.refetch()} message={normalizeApiError(fields.error).message} />
         ) : (
@@ -91,11 +90,6 @@ export default function ReportDetailPage() {
             isLoading={fields.isLoading}
             onVerifyField={handleVerifyField}
           />
-        )}
-        {reportData ? (
-          <FileViewer reportId={reportId} role="doctor" mimeType={reportData.file_mime} />
-        ) : (
-          <Skeleton variant="file" />
         )}
       </div>
     </div>

@@ -68,7 +68,7 @@ export function useMyTrends(fieldName: string) {
   });
 }
 
-export function useMyEDA(reportId: string) {
+export function useMyEDA(reportId: string, enabled = true) {
   return useQuery({
     queryKey: queryKeys.reports.eda(reportId),
     queryFn: async ({ signal }) => {
@@ -79,7 +79,7 @@ export function useMyEDA(reportId: string) {
         throw normalizeApiError(error);
       }
     },
-    enabled: Boolean(reportId),
+    enabled: Boolean(reportId) && enabled,
     staleTime: staleTime.analytics,
   });
 }
