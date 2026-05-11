@@ -1,22 +1,80 @@
+# Environment and secrets
 .env
-venvHdmis/
+.env.*
+!.env.example
+*.local
+*.pem
+*.key
+*.crt
+*service-account*.json
+*credentials*.json
+*vision-key*.json
+google-application-credentials*.json
+
+# Python
 __pycache__/
 *.py[cod]
+*$py.class
+.python-version
+.venv/
+venv/
+venvHdmis/
+env/
+ENV/
+pip-wheel-metadata/
+build/
+dist/
+*.egg-info/
 .pytest_cache/
-
-
-
 .coverage
+.coverage.*
+coverage.xml
 htmlcov/
 .mypy_cache/
+.pyright/
 .ruff_cache/
 .tox/
+
+# Node / frontend
+node_modules/
+frontend/node_modules/
+frontend/dist/
+frontend/dist-ssr/
+frontend/.vite/
+frontend/coverage/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Local application data
+storage/
+qdrant_storage/
+uploads/
+tmp/
+temp/
+*.db
+*.sqlite
+*.sqlite3
+
+# Logs
+logs/
+*.log
+celerybeat-schedule
+celerybeat.pid
+
+# OS / editor
 .DS_Store
+Thumbs.db
 .vscode/
 .idea/
-*.log
+*.swp
+*.swo
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
 
-# Local databases and storage
-qdrant_storage/
-*.db
-*.sqlite3
+# Generated local artifacts
+*.prof
+*.pid
