@@ -24,7 +24,6 @@ const AdminSystemHealthPage = lazy(() => import('./pages/admin/SystemHealthPage'
 const UsersPage = lazy(() => import('./pages/admin/UsersPage'));
 const AnalyticsPage = lazy(() => import('./pages/doctor/AnalyticsPage'));
 const AnalyticsOverviewPage = lazy(() => import('./pages/doctor/AnalyticsOverviewPage'));
-const ChatPage = lazy(() => import('./pages/doctor/ChatPage'));
 const DoctorAccountPage = lazy(() => import('./pages/doctor/AccountPage'));
 const DoctorDashboard = lazy(() => import('./pages/doctor/DoctorDashboard'));
 const HITLQueuePage = lazy(() => import('./pages/doctor/HITLQueuePage'));
@@ -106,7 +105,7 @@ function App() {
               <Route path="/doctor/hitl" element={<LazyRoute><HITLQueuePage /></LazyRoute>} />
               <Route path="/doctor/analytics" element={<LazyRoute><AnalyticsOverviewPage /></LazyRoute>} />
               <Route path="/doctor/analytics/:patientId" element={<LazyRoute><AnalyticsPage /></LazyRoute>} />
-              <Route path="/doctor/chat" element={<LazyRoute><ChatPage /></LazyRoute>} />
+              <Route path="/doctor/chat" element={<Navigate to="/doctor" replace />} />
               <Route path="/doctor/notifications" element={<LazyRoute><DoctorNotificationsPage /></LazyRoute>} />
               <Route path="/doctor/account" element={<LazyRoute><DoctorAccountPage /></LazyRoute>} />
               <Route path="/doctor/logout" element={<LazyRoute><AdminLogoutPage /></LazyRoute>} />

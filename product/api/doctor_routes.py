@@ -41,6 +41,8 @@ router = APIRouter(prefix="/doctor", tags=["doctor"])
 class DoctorQueryRequest(BaseModel):
     text: str
     patient_id: UUID | None = None
+    mode: str | None = None
+    workflow: str | None = None
     filters: dict | None = None
 
 

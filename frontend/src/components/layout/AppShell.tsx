@@ -1,11 +1,15 @@
 import { Outlet } from 'react-router-dom';
+import { DoctorFloatingAssistant } from '../assistant/DoctorFloatingAssistant';
 import { RealtimeProvider } from '../../providers/RealtimeProvider';
+import { useAuthStore } from '../../store/authStore';
 import { useUIStore } from '../../store/uiStore';
 import { Sidebar } from './Sidebar';
 import { Topbar } from './Topbar';
 
 export function AppShell() {
   const sidebarOpen = useUIStore((state) => state.sidebarOpen);
+  const user = useAuthStore((state) => state.user);
+  const showDoctorAssistant = user?.role === 'doctor' && user.verification_status === 'approved';
 
   return (
     <RealtimeProvider>
@@ -17,6 +21,7 @@ export function AppShell() {
             <Outlet />
           </main>
         </div>
+        {showDoctorAssistant ? <DoctorFloatingAssistant /> : null}
       </div>
     </RealtimeProvider>
   );

@@ -109,9 +109,20 @@ export interface AnalyticsResult {
   cached: boolean;
 }
 
+export type DoctorAssistantMode =
+  | 'patient_specific'
+  | 'global_analytics'
+  | 'report_discussion'
+  | 'trend_analysis'
+  | 'ocr_investigation'
+  | 'abnormality_review';
+
 export interface DoctorQueryRequest {
   text: string;
   patient_id?: string;
+  mode?: DoctorAssistantMode;
+  workflow?: string;
+  filters?: Record<string, unknown>;
 }
 
 export interface PatientChatRequest {
