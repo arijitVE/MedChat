@@ -23,6 +23,7 @@ from pipeline_a.api.routes import router as pipeline_a_router
 from pipeline_b.api.doctor_routes import router as doctor_router
 from pipeline_b.api.patient_routes import router as patient_router
 from product.api.auth_routes import router as auth_router
+from product.api.admin_routes import router as product_admin_router
 from product.api.doctor_routes import router as product_doctor_router
 from product.api.patient_routes import router as product_patient_router
 
@@ -42,6 +43,7 @@ app.add_middleware(
 
 app.include_router(pipeline_a_router)
 app.include_router(auth_router)
+app.include_router(product_admin_router)
 app.include_router(product_doctor_router)
 app.include_router(product_patient_router)
 app.include_router(doctor_router)

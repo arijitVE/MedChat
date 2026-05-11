@@ -9,6 +9,7 @@ from product.schemas.admin import AdminStats, HITLQueueItem
 from product.schemas.assignment import AssignmentResponse
 from product.schemas.user import UserProfile
 from product.services import admin_service
+from product.services import notification_service
 from shared.db.session import get_db
 
 
@@ -33,15 +34,43 @@ def get_stats(
     return admin_service.get_system_stats(db)
 
 
-@router.get("/users")
-def list_users(
-    role: str | None = Query(default=None),
-    limit: int = Query(default=100, le=100),
-    offset: int = Query(default=0, ge=0),
+@router.get("/dashboard", response_model=AdminStats)
+def get_dashboard(
     current_user: UserProfile = Depends(require_role("admin")),
     db: Session = Depends(get_db),
 ):
-    return admin_service.list_users(db, role=role, limit=limit, offset=offset)
+    return admin_service.get_system_stats(db)
+
+
+@router.get("/users")
+def list_users(
+    role: str | None = Query(default=None),
+    page: int = Query(default=1, ge=1),
+    page_size: int = Query(default=20, ge=1, le=100),
+    current_user: UserProfile = Depends(require_role("admin")),
+    db: Session = Depends(get_db),
+):
+    return admin_service.list_users(db, role=role, page=page, page_size=page_size)
+
+
+@router.get("/doctors")
+def list_doctors(
+    page: int = Query(default=1, ge=1),
+    page_size: int = Query(default=20, ge=1, le=100),
+    current_user: UserProfile = Depends(require_role("admin")),
+    db: Session = Depends(get_db),
+):
+    return admin_service.list_users(db, role="doctor", page=page, page_size=page_size)
+
+
+@router.get("/patients")
+def list_patients(
+    page: int = Query(default=1, ge=1),
+    page_size: int = Query(default=20, ge=1, le=100),
+    current_user: UserProfile = Depends(require_role("admin")),
+    db: Session = Depends(get_db),
+):
+    return admin_service.list_users(db, role="patient", page=page, page_size=page_size)
 
 
 @router.get("/users/{user_id}")
@@ -67,12 +96,99 @@ def create_assignment(
     )
 
 
+@router.get("/assignments")
+def list_assignments(
+    page: int = Query(default=1, ge=1),
+    page_size: int = Query(default=20, ge=1, le=100),
+    current_user: UserProfile = Depends(require_role("admin")),
+    db: Session = Depends(get_db),
+):
+    return admin_service.list_assignments(db, page=page, page_size=page_size)
+
+
+@router.get("/reports")
+def list_reports(
+    status: str | None = Query(default=None),
+    page: int = Query(default=1, ge=1),
+    page_size: int = Query(default=20, ge=1, le=100),
+    current_user: UserProfile = Depends(require_role("admin")),
+    db: Session = Depends(get_db),
+):
+    return admin_service.list_reports(db, status=status, page=page, page_size=page_size)
+
+
+@router.get("/failed-jobs")
+def list_failed_jobs(
+    page: int = Query(default=1, ge=1),
+    page_size: int = Query(default=20, ge=1, le=100),
+    current_user: UserProfile = Depends(require_role("admin")),
+    db: Session = Depends(get_db),
+):
+    return admin_service.list_failed_jobs(db, page=page, page_size=page_size)
+
+
 @router.get("/hitl-queue", response_model=list[HITLQueueItem])
 def get_hitl_queue(
     current_user: UserProfile = Depends(require_role("admin")),
     db: Session = Depends(get_db),
 ):
     return admin_service.get_hitl_queue(db)
+
+
+@router.get("/analytics")
+def get_analytics(
+    current_user: UserProfile = Depends(require_role("admin")),
+    db: Session = Depends(get_db),
+):
+    return admin_service.get_analytics(db)
+
+
+@router.get("/notifications")
+def list_notifications(
+    page: int = Query(default=1, ge=1),
+    page_size: int = Query(default=20, ge=1, le=100),
+    current_user: UserProfile = Depends(require_role("admin")),
+    db: Session = Depends(get_db),
+):
+    return admin_service.list_notifications(db, page=page, page_size=page_size)
+
+
+@router.put("/notifications/{notification_id}/read")
+def mark_notification_read(
+    notification_id: UUID,
+    current_user: UserProfile = Depends(require_role("admin")),
+    db: Session = Depends(get_db),
+):
+    return notification_service.mark_notification_read(
+        notification_id,
+        current_user.user_id,
+        db,
+    )
+
+
+@router.get("/audit-logs")
+def list_audit_logs(
+    page: int = Query(default=1, ge=1),
+    page_size: int = Query(default=20, ge=1, le=100),
+    current_user: UserProfile = Depends(require_role("admin")),
+    db: Session = Depends(get_db),
+):
+    return admin_service.list_audit_logs(db, page=page, page_size=page_size)
+
+
+@router.get("/system-health")
+def get_system_health(
+    current_user: UserProfile = Depends(require_role("admin")),
+    db: Session = Depends(get_db),
+):
+    return admin_service.get_system_health(db)
+
+
+@router.get("/settings")
+def get_settings(
+    current_user: UserProfile = Depends(require_role("admin")),
+):
+    return admin_service.get_admin_settings()
 
 
 @router.post("/password-reset")

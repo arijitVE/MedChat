@@ -2,13 +2,21 @@ import { NavLink } from 'react-router-dom';
 import type { LucideIcon } from 'lucide-react';
 import {
   BarChart3,
+  Activity,
+  Bell,
   FileText,
   Home,
+  LogOut,
   MessageSquare,
   Upload,
   Users,
   ClipboardList,
   User as UserIcon,
+  Settings,
+  ShieldCheck,
+  Stethoscope,
+  UserRound,
+  ClipboardCheck,
 } from 'lucide-react';
 import { useAuthStore } from '../../store/authStore';
 import { useUIStore } from '../../store/uiStore';
@@ -38,7 +46,18 @@ const linksByRole: Record<User['role'], SidebarLink[]> = {
   admin: [
     { to: '/admin', label: 'Dashboard', icon: Home },
     { to: '/admin/users', label: 'Users', icon: Users },
+    { to: '/admin/doctors', label: 'Doctors', icon: Stethoscope },
+    { to: '/admin/patients', label: 'Patients', icon: UserRound },
+    { to: '/admin/assignments', label: 'Assign Doctor', icon: ClipboardCheck },
+    { to: '/admin/reports', label: 'Reports', icon: FileText },
+    { to: '/admin/failed-jobs', label: 'Failed Jobs', icon: Activity },
     { to: '/admin/hitl', label: 'HITL Overview', icon: ClipboardList },
+    { to: '/admin/analytics', label: 'Analytics', icon: BarChart3 },
+    { to: '/admin/notifications', label: 'Notifications', icon: Bell },
+    { to: '/admin/audit-logs', label: 'Audit Logs', icon: ShieldCheck },
+    { to: '/admin/system-health', label: 'System Health', icon: Activity },
+    { to: '/admin/settings', label: 'Settings', icon: Settings },
+    { to: '/admin/logout', label: 'Logout', icon: LogOut },
   ],
 };
 

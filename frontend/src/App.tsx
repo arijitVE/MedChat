@@ -9,7 +9,18 @@ import { useAuthStore } from './store/authStore';
 import type { User } from './types/auth';
 
 const AdminDashboard = lazy(() => import('./pages/admin/AdminDashboard'));
+const AdminAnalyticsPage = lazy(() => import('./pages/admin/AnalyticsPage'));
+const AdminAssignmentsPage = lazy(() => import('./pages/admin/AssignmentsPage'));
+const AdminAuditLogsPage = lazy(() => import('./pages/admin/AuditLogsPage'));
+const AdminDoctorsPage = lazy(() => import('./pages/admin/DoctorsPage'));
+const AdminFailedJobsPage = lazy(() => import('./pages/admin/FailedJobsPage'));
 const HITLOverviewPage = lazy(() => import('./pages/admin/HITLOverviewPage'));
+const AdminLogoutPage = lazy(() => import('./pages/admin/LogoutPage'));
+const AdminNotificationsPage = lazy(() => import('./pages/admin/NotificationsPage'));
+const AdminPatientsPage = lazy(() => import('./pages/admin/PatientsPage'));
+const AdminReportsPage = lazy(() => import('./pages/admin/ReportsPage'));
+const AdminSettingsPage = lazy(() => import('./pages/admin/SettingsPage'));
+const AdminSystemHealthPage = lazy(() => import('./pages/admin/SystemHealthPage'));
 const UsersPage = lazy(() => import('./pages/admin/UsersPage'));
 const AnalyticsPage = lazy(() => import('./pages/doctor/AnalyticsPage'));
 const ChatPage = lazy(() => import('./pages/doctor/ChatPage'));
@@ -90,7 +101,18 @@ function App() {
           <Route element={<AppShell />}>
             <Route path="/admin" element={<LazyRoute><AdminDashboard /></LazyRoute>} />
             <Route path="/admin/users" element={<LazyRoute><UsersPage /></LazyRoute>} />
+            <Route path="/admin/doctors" element={<LazyRoute><AdminDoctorsPage /></LazyRoute>} />
+            <Route path="/admin/patients" element={<LazyRoute><AdminPatientsPage /></LazyRoute>} />
+            <Route path="/admin/assignments" element={<LazyRoute><AdminAssignmentsPage /></LazyRoute>} />
+            <Route path="/admin/reports" element={<LazyRoute><AdminReportsPage /></LazyRoute>} />
+            <Route path="/admin/failed-jobs" element={<LazyRoute><AdminFailedJobsPage /></LazyRoute>} />
             <Route path="/admin/hitl" element={<LazyRoute><HITLOverviewPage /></LazyRoute>} />
+            <Route path="/admin/analytics" element={<LazyRoute><AdminAnalyticsPage /></LazyRoute>} />
+            <Route path="/admin/notifications" element={<LazyRoute><AdminNotificationsPage /></LazyRoute>} />
+            <Route path="/admin/audit-logs" element={<LazyRoute><AdminAuditLogsPage /></LazyRoute>} />
+            <Route path="/admin/system-health" element={<LazyRoute><AdminSystemHealthPage /></LazyRoute>} />
+            <Route path="/admin/settings" element={<LazyRoute><AdminSettingsPage /></LazyRoute>} />
+            <Route path="/admin/logout" element={<LazyRoute><AdminLogoutPage /></LazyRoute>} />
           </Route>
         </Route>
 
