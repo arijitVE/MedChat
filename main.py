@@ -26,6 +26,7 @@ from product.api.auth_routes import router as auth_router
 from product.api.admin_routes import router as product_admin_router
 from product.api.doctor_routes import router as product_doctor_router
 from product.api.patient_routes import router as product_patient_router
+from product.api.user_routes import router as product_user_router
 
 
 app = FastAPI(
@@ -46,6 +47,7 @@ app.include_router(auth_router)
 app.include_router(product_admin_router)
 app.include_router(product_doctor_router)
 app.include_router(product_patient_router)
+app.include_router(product_user_router)
 app.include_router(doctor_router)
 app.include_router(patient_router)
 

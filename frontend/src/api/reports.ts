@@ -15,6 +15,8 @@ type MyReportsParams = {
   date_from?: string;
   date_to?: string;
   document_type?: string;
+  lifecycle_status?: string;
+  query?: string;
 };
 
 export const reportsApi = {
@@ -82,6 +84,8 @@ export const reportsApi = {
         date_from: params?.date_from,
         date_to: params?.date_to,
         type: params?.document_type,
+        lifecycle_status: params?.lifecycle_status,
+        query: params?.query,
       },
     }),
   fetchMyReports: (params?: MyReportsParams) =>
@@ -90,6 +94,8 @@ export const reportsApi = {
         date_from: params?.date_from,
         date_to: params?.date_to,
         type: params?.document_type,
+        lifecycle_status: params?.lifecycle_status,
+        query: params?.query,
       },
     }),
   getMyReport: (reportId: string) =>

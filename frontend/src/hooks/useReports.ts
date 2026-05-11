@@ -18,6 +18,8 @@ type MyReportsFilters = {
   date_from?: string;
   date_to?: string;
   document_type?: string;
+  lifecycle_status?: string;
+  query?: string;
 };
 
 function isReportProcessing(report: Report): boolean {

@@ -11,10 +11,18 @@ class SignupRequest(BaseModel):
     role: Literal["doctor", "patient", "admin"]
     full_name: str
     phone: str | None = None
+    phone_number: str | None = None
     license_number: str | None = None
     specialization: str | None = None
+    age: int | None = None
+    gender: Literal["male", "female", "other"] | None = None
     date_of_birth: date | None = None
     sex: Literal["male", "female", "other"] | None = None
+    blood_group: str | None = None
+    allergies: str | None = None
+    chronic_conditions: str | None = None
+    address: str | None = None
+    emergency_contact: str | None = None
     claim_patient_uid: str | None = None
 
 
@@ -28,4 +36,3 @@ class TokenResponse(BaseModel):
     token_type: str = "bearer"
     user_id: UUID
     role: Literal["doctor", "patient", "admin"]
-

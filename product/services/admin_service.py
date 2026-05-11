@@ -122,7 +122,9 @@ def list_users(
         {"role": role},
     )
     sql = """
-        SELECT user_id, email, role, full_name, phone, license_number,
+        SELECT user_id, email, role, full_name, phone, age, gender,
+               blood_group, allergies, chronic_conditions, address,
+               emergency_contact, last_login, license_number,
                specialization, patient_uid, date_of_birth, sex,
                is_registered, is_active, created_at, updated_at
         FROM users
@@ -345,7 +347,9 @@ def get_user(user_id: str | UUID, db: Session) -> dict:
     row = db.execute(
         text(
             """
-            SELECT user_id, email, role, full_name, phone, license_number,
+            SELECT user_id, email, role, full_name, phone, age, gender,
+                   blood_group, allergies, chronic_conditions, address,
+                   emergency_contact, last_login, license_number,
                    specialization, patient_uid, date_of_birth, sex,
                    is_registered, is_active, created_at, updated_at
             FROM users
@@ -372,7 +376,9 @@ def set_user_active(
             SET is_active = :is_active,
                 updated_at = NOW()
             WHERE user_id = :user_id
-            RETURNING user_id, email, role, full_name, phone, license_number,
+            RETURNING user_id, email, role, full_name, phone, age, gender,
+                      blood_group, allergies, chronic_conditions, address,
+                      emergency_contact, last_login, license_number,
                       specialization, patient_uid, date_of_birth, sex,
                       is_registered, is_active, created_at, updated_at
             """

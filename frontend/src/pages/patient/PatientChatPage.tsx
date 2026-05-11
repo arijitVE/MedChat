@@ -5,7 +5,9 @@ import { Card } from '../../components/ui/Card';
 import { Toast } from '../../components/ui/Toast';
 import { useAuth } from '../../hooks/useAuth';
 import { usePatientChat } from '../../hooks/useIntelligence';
+import { useMyReports } from '../../hooks/useReports';
 import { normalizeApiError } from '../../lib/apiError';
+import { sanitizeFilename } from '../../lib/sanitize';
 import type { ChatMessage, PatientChatResult } from '../../types/intelligence';
 
 const fallbackDisclaimer = 'This chat does not replace medical advice from your care team.';
@@ -45,8 +47,11 @@ function AssistantMessage({ result, content }: { result: PatientChatResult; cont
 export default function PatientChatPage() {
   const { user } = useAuth();
   const patientChat = usePatientChat();
+  const reports = useMyReports();
   const abortControllerRef = useRef<AbortController | null>(null);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
+  const [contextMode, setContextMode] = useState<'general' | 'report' | null>(null);
+  const [selectedReportId, setSelectedReportId] = useState('');
   const [input, setInput] = useState('');
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const disclaimer = getLatestDisclaimer(messages) ?? fallbackDisclaimer;
@@ -78,7 +83,12 @@ export default function PatientChatPage() {
 
     try {
       const result = await patientChat.mutateAsync({
-        data: { text, patient_id: user.user_id },
+        data: {
+          text,
+          patient_id: user.user_id,
+          context_mode: contextMode ?? 'general',
+          report_id: contextMode === 'report' ? selectedReportId : undefined,
+        },
         signal: abortController.signal,
       });
       const assistantMessage: ChatMessage = {
@@ -102,9 +112,69 @@ export default function PatientChatPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-lg font-semibold text-clinical-text-primary">Patient Chat</h1>
-        <p className="mt-1 text-sm text-clinical-text-secondary">Ask about your released reports in plain language.</p>
+        <h1 className="text-lg font-semibold text-clinical-text-primary">Chat Assistant</h1>
+        <p className="mt-1 text-sm text-clinical-text-secondary">Ask about your reports in simple, safe language.</p>
       </div>
+
+      <Card>
+        <h2 className="text-base font-semibold text-clinical-text-primary">Choose conversation context</h2>
+        <div className="mt-4 grid gap-3 md:grid-cols-2">
+          <button
+            type="button"
+            className={`rounded-md border px-4 py-3 text-left text-sm ${contextMode === 'report' ? 'border-clinical-primary bg-clinical-primary-light' : 'border-clinical-border'}`}
+            onClick={() => setContextMode('report')}
+          >
+            <span className="font-medium text-clinical-text-primary">Discuss a Specific Report</span>
+            <span className="mt-1 block text-clinical-text-secondary">Focus answers on one selected report.</span>
+          </button>
+          <button
+            type="button"
+            className={`rounded-md border px-4 py-3 text-left text-sm ${contextMode === 'general' ? 'border-clinical-primary bg-clinical-primary-light' : 'border-clinical-border'}`}
+            onClick={() => {
+              setContextMode('general');
+              setSelectedReportId('');
+            }}
+          >
+            <span className="font-medium text-clinical-text-primary">General Health Discussion</span>
+            <span className="mt-1 block text-clinical-text-secondary">Use your stored report history for longitudinal questions.</span>
+          </button>
+        </div>
+        {contextMode === 'report' ? (
+          <select
+            className="mt-4 w-full rounded-md border border-clinical-border px-3 py-2 text-sm"
+            value={selectedReportId}
+            onChange={(event) => setSelectedReportId(event.target.value)}
+            aria-label="Select report context"
+          >
+            <option value="">Select a report</option>
+            {(reports.data ?? []).map((report) => (
+              <option key={report.report_id} value={report.report_id}>
+                {sanitizeFilename(report.file_name)}
+              </option>
+            ))}
+          </select>
+        ) : null}
+        <p className="mt-3 text-sm font-medium text-clinical-primary">
+          {contextMode === 'report'
+            ? `Discussing: ${
+                sanitizeFilename((reports.data ?? []).find((report) => report.report_id === selectedReportId)?.file_name ?? 'Select a report')
+              }`
+            : contextMode === 'general'
+              ? 'General Health Discussion Mode'
+              : 'Choose a context to start chatting'}
+        </p>
+        <Button
+          className="mt-4"
+          variant="secondary"
+          onClick={() => {
+            setMessages([]);
+            setInput('');
+            setErrorMessage(null);
+          }}
+        >
+          Start new conversation
+        </Button>
+      </Card>
 
       <div className="sticky top-0 z-20 rounded-md border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-950 shadow-sm">
         {disclaimer}
@@ -162,7 +232,7 @@ export default function PatientChatPage() {
           <Button
             type="submit"
             loading={patientChat.isPending}
-            disabled={!input.trim() || !user}
+            disabled={!input.trim() || !user || !contextMode || (contextMode === 'report' && !selectedReportId)}
             leftIcon={<Send className="h-4 w-4" aria-hidden="true" />}
           >
             Send

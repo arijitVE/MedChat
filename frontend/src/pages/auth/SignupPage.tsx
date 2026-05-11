@@ -31,10 +31,17 @@ const signupFields = [
   'full_name',
   'role',
   'phone',
+  'phone_number',
+  'gender',
   'license_number',
   'specialization',
   'date_of_birth',
   'sex',
+  'blood_group',
+  'allergies',
+  'chronic_conditions',
+  'address',
+  'emergency_contact',
   'claim_patient_uid',
 ] as const;
 
@@ -51,13 +58,35 @@ function normalizeSignupSex(value: SignupFormValues['sex']): SignupSex | null {
   return null;
 }
 
+function calculateAge(dateOfBirth: string | undefined): number | null {
+  const value = trimToNull(dateOfBirth);
+  if (!value) {
+    return null;
+  }
+
+  const dob = new Date(`${value}T00:00:00`);
+  if (Number.isNaN(dob.getTime())) {
+    return null;
+  }
+
+  const today = new Date();
+  let age = today.getFullYear() - dob.getFullYear();
+  const monthDelta = today.getMonth() - dob.getMonth();
+  if (monthDelta < 0 || (monthDelta === 0 && today.getDate() < dob.getDate())) {
+    age -= 1;
+  }
+  return age >= 0 ? age : null;
+}
+
 function normalizeSignupPayload(values: SignupFormValues): SignupRequest {
+  const phoneValue = trimToNull(values.phone_number) ?? trimToNull(values.phone);
   const basePayload = {
     email: values.email.trim(),
     password: values.password.trim(),
     role: values.role,
     full_name: values.full_name.trim(),
-    phone: trimToNull(values.phone),
+    phone: phoneValue,
+    phone_number: phoneValue,
   };
 
   if (values.role === 'doctor') {
@@ -75,8 +104,15 @@ function normalizeSignupPayload(values: SignupFormValues): SignupRequest {
     ...basePayload,
     license_number: null,
     specialization: null,
+    age: calculateAge(values.date_of_birth),
+    gender: normalizeSignupSex(values.gender),
     date_of_birth: trimToNull(values.date_of_birth),
-    sex: normalizeSignupSex(values.sex),
+    sex: normalizeSignupSex(values.gender ?? values.sex),
+    blood_group: trimToNull(values.blood_group),
+    allergies: trimToNull(values.allergies),
+    chronic_conditions: trimToNull(values.chronic_conditions),
+    address: trimToNull(values.address),
+    emergency_contact: trimToNull(values.emergency_contact),
     claim_patient_uid: trimToNull(values.claim_patient_uid),
   };
 }
@@ -125,10 +161,17 @@ export default function SignupPage() {
       full_name: '',
       role: 'patient',
       phone: '',
+      phone_number: '',
+      gender: '',
       license_number: '',
       specialization: defaultDoctorSpecialization,
       date_of_birth: '',
       sex: '',
+      blood_group: '',
+      allergies: '',
+      chronic_conditions: '',
+      address: '',
+      emergency_contact: '',
       claim_patient_uid: '',
     },
   });
@@ -250,16 +293,23 @@ export default function SignupPage() {
           </fieldset>
 
           <div>
-            <label htmlFor="phone" className="block text-sm font-medium text-clinical-text-primary">
-              Phone
+            <label htmlFor="phone_number" className="block text-sm font-medium text-clinical-text-primary">
+              Phone number
             </label>
             <input
-              id="phone"
+              id="phone_number"
               type="tel"
               autoComplete="tel"
               className="mt-1 block w-full rounded-md border border-clinical-border bg-clinical-surface px-3 py-2 text-sm text-clinical-text-primary outline-none focus:border-clinical-primary focus:ring-2 focus:ring-clinical-primary-light"
-              {...register('phone')}
+              aria-invalid={fieldErrors.phone_number ? true : undefined}
+              aria-describedby={fieldErrors.phone_number ? 'phone-number-error' : undefined}
+              {...register('phone_number')}
             />
+            {fieldErrors.phone_number ? (
+              <p id="phone-number-error" className="mt-1 text-sm text-clinical-critical">
+                {fieldErrors.phone_number}
+              </p>
+            ) : null}
           </div>
 
           {selectedRole === 'doctor' ? (
@@ -303,25 +353,15 @@ export default function SignupPage() {
           ) : (
             <>
               <div>
-                <label htmlFor="date_of_birth" className="block text-sm font-medium text-clinical-text-primary">
-                  Date of birth
-                </label>
-                <input
-                  id="date_of_birth"
-                  type="date"
-                  className="mt-1 block w-full rounded-md border border-clinical-border bg-clinical-surface px-3 py-2 text-sm text-clinical-text-primary outline-none focus:border-clinical-primary focus:ring-2 focus:ring-clinical-primary-light"
-                  {...register('date_of_birth')}
-                />
-              </div>
-
-              <div>
-                <label htmlFor="sex" className="block text-sm font-medium text-clinical-text-primary">
-                  Sex
+                <label htmlFor="gender" className="block text-sm font-medium text-clinical-text-primary">
+                  Gender
                 </label>
                 <select
-                  id="sex"
+                  id="gender"
                   className="mt-1 block w-full rounded-md border border-clinical-border bg-clinical-surface px-3 py-2 text-sm text-clinical-text-primary outline-none focus:border-clinical-primary focus:ring-2 focus:ring-clinical-primary-light"
-                  {...register('sex')}
+                  aria-invalid={fieldErrors.gender ? true : undefined}
+                  aria-describedby={fieldErrors.gender ? 'gender-error' : undefined}
+                  {...register('gender')}
                 >
                   <option value="">Select</option>
                   {sexOptions.map((option) => (
@@ -330,6 +370,91 @@ export default function SignupPage() {
                     </option>
                   ))}
                 </select>
+                {fieldErrors.gender ? (
+                  <p id="gender-error" className="mt-1 text-sm text-clinical-critical">
+                    {fieldErrors.gender}
+                  </p>
+                ) : null}
+              </div>
+
+              <div>
+                <label htmlFor="date_of_birth" className="block text-sm font-medium text-clinical-text-primary">
+                  Date of birth
+                </label>
+                <input
+                  id="date_of_birth"
+                  type="date"
+                  className="mt-1 block w-full rounded-md border border-clinical-border bg-clinical-surface px-3 py-2 text-sm text-clinical-text-primary outline-none focus:border-clinical-primary focus:ring-2 focus:ring-clinical-primary-light"
+                  aria-invalid={fieldErrors.date_of_birth ? true : undefined}
+                  aria-describedby={fieldErrors.date_of_birth ? 'date-of-birth-error' : undefined}
+                  {...register('date_of_birth')}
+                />
+                {fieldErrors.date_of_birth ? (
+                  <p id="date-of-birth-error" className="mt-1 text-sm text-clinical-critical">
+                    {fieldErrors.date_of_birth}
+                  </p>
+                ) : null}
+              </div>
+
+              <div>
+                <label htmlFor="blood_group" className="block text-sm font-medium text-clinical-text-primary">
+                  Blood group
+                </label>
+                <input
+                  id="blood_group"
+                  type="text"
+                  className="mt-1 block w-full rounded-md border border-clinical-border bg-clinical-surface px-3 py-2 text-sm text-clinical-text-primary outline-none focus:border-clinical-primary focus:ring-2 focus:ring-clinical-primary-light"
+                  {...register('blood_group')}
+                />
+              </div>
+
+              <div className="sm:col-span-2">
+                <label htmlFor="allergies" className="block text-sm font-medium text-clinical-text-primary">
+                  Allergies
+                </label>
+                <input
+                  id="allergies"
+                  type="text"
+                  className="mt-1 block w-full rounded-md border border-clinical-border bg-clinical-surface px-3 py-2 text-sm text-clinical-text-primary outline-none focus:border-clinical-primary focus:ring-2 focus:ring-clinical-primary-light"
+                  {...register('allergies')}
+                />
+              </div>
+
+              <div className="sm:col-span-2">
+                <label htmlFor="chronic_conditions" className="block text-sm font-medium text-clinical-text-primary">
+                  Chronic conditions
+                </label>
+                <input
+                  id="chronic_conditions"
+                  type="text"
+                  className="mt-1 block w-full rounded-md border border-clinical-border bg-clinical-surface px-3 py-2 text-sm text-clinical-text-primary outline-none focus:border-clinical-primary focus:ring-2 focus:ring-clinical-primary-light"
+                  {...register('chronic_conditions')}
+                />
+              </div>
+
+              <div className="sm:col-span-2">
+                <label htmlFor="address" className="block text-sm font-medium text-clinical-text-primary">
+                  Address
+                </label>
+                <input
+                  id="address"
+                  type="text"
+                  autoComplete="street-address"
+                  className="mt-1 block w-full rounded-md border border-clinical-border bg-clinical-surface px-3 py-2 text-sm text-clinical-text-primary outline-none focus:border-clinical-primary focus:ring-2 focus:ring-clinical-primary-light"
+                  {...register('address')}
+                />
+              </div>
+
+              <div className="sm:col-span-2">
+                <label htmlFor="emergency_contact" className="block text-sm font-medium text-clinical-text-primary">
+                  Emergency contact
+                </label>
+                <input
+                  id="emergency_contact"
+                  type="text"
+                  className="mt-1 block w-full rounded-md border border-clinical-border bg-clinical-surface px-3 py-2 text-sm text-clinical-text-primary outline-none focus:border-clinical-primary focus:ring-2 focus:ring-clinical-primary-light"
+                  {...register('emergency_contact')}
+                />
               </div>
 
               <div className="sm:col-span-2">

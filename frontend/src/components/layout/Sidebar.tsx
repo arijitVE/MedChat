@@ -40,7 +40,7 @@ const linksByRole: Record<User['role'], SidebarLink[]> = {
     { to: '/patient', label: 'Dashboard', icon: Home },
     { to: '/patient/reports', label: 'Reports', icon: FileText },
     { to: '/patient/trends', label: 'Trends', icon: BarChart3 },
-    { to: '/patient/chat', label: 'Chat', icon: MessageSquare },
+    { to: '/patient/chat', label: 'Chat Assistant', icon: MessageSquare },
     { to: '/patient/account', label: 'Account', icon: UserIcon },
   ],
   admin: [

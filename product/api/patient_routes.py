@@ -1,7 +1,8 @@
 from uuid import UUID
 
-from fastapi import APIRouter, BackgroundTasks, Depends, File, Query, UploadFile
+from fastapi import APIRouter, BackgroundTasks, Depends, File, HTTPException, Query, UploadFile
 from pydantic import BaseModel
+from sqlalchemy import text
 from sqlalchemy.orm import Session
 
 from pipeline_b.schemas.output import PatientChatResult, TrendResult
@@ -33,6 +34,93 @@ router = APIRouter(prefix="/patient", tags=["patient"])
 
 class PatientChatRequest(BaseModel):
     text: str
+    context_mode: str | None = None
+    report_id: UUID | None = None
+
+
+PATIENT_CHAT_DISCLAIMER = (
+    "This information is educational and based only on stored report data. "
+    "Please consult your doctor for medical decisions."
+)
+
+
+def _is_history_search(query_text: str) -> bool:
+    text_lower = query_text.lower()
+    search_terms = (
+        "show", "find", "search", "history", "previous", "past",
+        "latest", "oldest", "what was", "value from", "report from",
+    )
+    field_terms = (
+        "glucose", "hemoglobin", "cholesterol", "platelet", "cbc",
+        "blood", "bp", "pressure", "thyroid", "creatinine", "hdl", "ldl",
+    )
+    return any(term in text_lower for term in search_terms) and any(term in text_lower for term in field_terms)
+
+
+def _patient_history_search(query_text: str, patient_id, db: Session) -> PatientChatResult | None:
+    if not _is_history_search(query_text):
+        return None
+
+    tokens = [
+        token.strip().lower()
+        for token in query_text.replace("?", " ").replace(",", " ").split()
+        if len(token.strip()) >= 3
+    ]
+    rows = db.execute(
+        text(
+            """
+            SELECT rf.name, rf.value, rf.unit, rf.reference_range, rf.confidence,
+                   rf.status, r.file_name, r.first_uploaded_at
+            FROM report_fields rf
+            JOIN reports r ON r.job_id = rf.job_id
+            WHERE r.patient_id = :patient_id
+              AND r.released_to_patient = TRUE
+              AND (
+                  rf.name ILIKE ANY(:patterns)
+                  OR r.file_name ILIKE ANY(:patterns)
+                  OR r.inferred_document_type ILIKE ANY(:patterns)
+              )
+            ORDER BY r.first_uploaded_at DESC
+            LIMIT 10
+            """
+        ),
+        {
+            "patient_id": patient_id,
+            "patterns": [f"%{token}%" for token in tokens] or ["%"],
+        },
+    ).mappings().all()
+
+    if not rows:
+        return PatientChatResult(
+            response="Requested report data unavailable. No matching historical report found.",
+            simplified_fields=[],
+            disclaimer=PATIENT_CHAT_DISCLAIMER,
+            safety_blocked=False,
+        )
+
+    lines = ["Stored values found:"]
+    simplified_fields = []
+    for row in rows:
+        unit = f" {row['unit']}" if row["unit"] else ""
+        report_date = row["first_uploaded_at"].date().isoformat()
+        lines.append(
+            f"- {row['name']}: {row['value']}{unit} — {row['file_name']} ({report_date}); "
+            f"status: {row['status']}; confidence: {round(float(row['confidence']) * 100)}%"
+        )
+        simplified_fields.append(
+            {
+                "name": row["name"],
+                "value": f"{row['value']}{unit}",
+                "status": row["status"],
+            }
+        )
+
+    return PatientChatResult(
+        response="\n".join(lines),
+        simplified_fields=simplified_fields,
+        disclaimer=PATIENT_CHAT_DISCLAIMER,
+        safety_blocked=False,
+    )
 
 
 @router.post("/upload")
@@ -82,6 +170,8 @@ def search_reports(
     date_from: str | None = Query(default=None),
     date_to: str | None = Query(default=None),
     document_type: str | None = Query(default=None, alias="type"),
+    lifecycle_status: str | None = Query(default=None),
+    query: str | None = Query(default=None),
     current_user: UserProfile = Depends(require_role("patient")),
     db: Session = Depends(get_db),
 ):
@@ -93,6 +183,8 @@ def search_reports(
         effective_date_to,
         document_type,
         db,
+        status=lifecycle_status,
+        query=query,
     )
 
 
@@ -138,13 +230,7 @@ def verify_report_field(
     current_user: UserProfile = Depends(require_role("patient")),
     db: Session = Depends(get_db),
 ):
-    return verification_service.verify_field(
-        str(report_id),
-        field_name,
-        body,
-        current_user,
-        db,
-    )
+    raise HTTPException(status_code=403, detail="Patients cannot verify medical fields")
 
 
 class PatientAssignmentRequest(BaseModel):
@@ -206,6 +292,10 @@ def patient_chat(
     current_user: UserProfile = Depends(require_role("patient")),
     db: Session = Depends(get_db),
 ):
+    retrieval_response = _patient_history_search(body.text, current_user.user_id, db)
+    if retrieval_response is not None:
+        return retrieval_response
+
     classified = ClassifiedQuery(
         text=body.text,
         persona=PersonaType.patient,

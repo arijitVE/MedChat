@@ -10,11 +10,11 @@ const statusConfig: Record<LifecycleStatus, { label: string; variant: 'auto' | '
   uploaded: { label: 'Uploaded', variant: 'processing' },
   processing: { label: 'Processing', variant: 'processing' },
   auto_approved: { label: 'Auto-approved', variant: 'auto' },
-  hitl_required: { label: 'Needs verification', variant: 'hitl' },
-  patient_verified: { label: 'Patient verified', variant: 'verified' },
-  doctor_verified: { label: 'Doctor verified', variant: 'final' },
-  fully_verified: { label: 'Fully verified', variant: 'final' },
-  failed: { label: 'Failed', variant: 'hitl' },
+  hitl_required: { label: 'Doctor review pending', variant: 'hitl' },
+  patient_verified: { label: 'Reviewed', variant: 'verified' },
+  doctor_verified: { label: 'Verified', variant: 'final' },
+  fully_verified: { label: 'Released', variant: 'final' },
+  failed: { label: 'Processing failed', variant: 'hitl' },
 };
 
 export function ReportStatusBadge({ status, className = '' }: ReportStatusBadgeProps) {

@@ -25,8 +25,16 @@ export function useNotifications(role: NotificationRole | undefined) {
 
   return useQuery<NotificationItem[]>({
     queryKey,
-    queryFn: async () => queryClient.getQueryData<NotificationItem[]>(queryKey) ?? [],
-    enabled: false,
+    queryFn: async () => {
+      if (!role) {
+        return [];
+      }
+      const response = role === 'doctor'
+        ? await notificationsApi.getDoctorNotifications()
+        : await notificationsApi.getPatientNotifications();
+      return response.data;
+    },
+    enabled: Boolean(role),
     initialData: () => queryClient.getQueryData<NotificationItem[]>(queryKey) ?? [],
     staleTime: staleTime.notifications,
   });

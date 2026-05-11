@@ -15,6 +15,14 @@ function normalizeSignupUser(response: BackendTokenResponse, data: SignupRequest
     role: response.role,
     email: data.email,
     full_name: data.full_name,
+    phone: data.phone_number ?? data.phone ?? undefined,
+    age: data.age ?? undefined,
+    gender: data.gender ?? data.sex ?? undefined,
+    blood_group: data.blood_group ?? undefined,
+    allergies: data.allergies ?? undefined,
+    chronic_conditions: data.chronic_conditions ?? undefined,
+    address: data.address ?? undefined,
+    emergency_contact: data.emergency_contact ?? undefined,
     patient_uid: data.claim_patient_uid ?? undefined,
     license_number: data.license_number ?? undefined,
     specialization: data.specialization ?? undefined,
@@ -62,7 +70,13 @@ export function useLogin() {
         const user = normalizeLoginUser(response.data, data, useAuthStore.getState().user);
         storeRefreshToken(response.data.refresh_token);
         setAuth(response.data.access_token, user);
-        return normalizeTokenResponse(response.data, user);
+        try {
+          const profile = await authApi.me();
+          setAuth(response.data.access_token, profile.data);
+          return normalizeTokenResponse(response.data, profile.data);
+        } catch {
+          return normalizeTokenResponse(response.data, user);
+        }
       } catch (error) {
         throw normalizeApiError(error);
       }
@@ -80,7 +94,13 @@ export function useSignup() {
         const user = normalizeSignupUser(response.data, data);
         storeRefreshToken(response.data.refresh_token);
         setAuth(response.data.access_token, user);
-        return normalizeTokenResponse(response.data, user);
+        try {
+          const profile = await authApi.me();
+          setAuth(response.data.access_token, profile.data);
+          return normalizeTokenResponse(response.data, profile.data);
+        } catch {
+          return normalizeTokenResponse(response.data, user);
+        }
       } catch (error) {
         throw normalizeApiError(error);
       }

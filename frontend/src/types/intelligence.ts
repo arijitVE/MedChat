@@ -117,6 +117,8 @@ export interface DoctorQueryRequest {
 export interface PatientChatRequest {
   text: string;
   patient_id: string;
+  context_mode?: 'report' | 'general';
+  report_id?: string;
 }
 
 export interface ChatMessage {

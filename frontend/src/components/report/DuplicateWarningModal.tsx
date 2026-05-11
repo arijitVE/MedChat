@@ -9,6 +9,9 @@ interface DuplicateWarningModalProps {
   uploadedByRole: 'doctor' | 'patient';
   onUseExisting: () => void;
   onForceUpload: () => void;
+  useExistingLabel?: string;
+  forceUploadLabel?: string;
+  disclaimer?: string;
   onDismiss?: () => void;
   className?: string;
 }
@@ -29,6 +32,9 @@ export function DuplicateWarningModal({
   uploadedByRole,
   onUseExisting,
   onForceUpload,
+  useExistingLabel = 'Use existing',
+  forceUploadLabel,
+  disclaimer,
   onDismiss,
   className = '',
 }: DuplicateWarningModalProps) {
@@ -114,14 +120,19 @@ export function DuplicateWarningModal({
             <p className="mt-2 break-all text-xs text-clinical-text-muted">
               Existing report: {existingReportId}
             </p>
+            {disclaimer ? (
+              <p className="mt-3 rounded-md border border-clinical-warning bg-clinical-hitl-bg px-3 py-2 text-sm text-clinical-hitl">
+                {disclaimer}
+              </p>
+            ) : null}
           </div>
         </div>
         <div className="mt-6 flex justify-end gap-3">
           <Button variant="secondary" onClick={onUseExisting}>
-            Use existing
+            {useExistingLabel}
           </Button>
           <Button variant={type === 'exact' ? 'danger' : 'primary'} onClick={onForceUpload}>
-            Force upload
+            {forceUploadLabel ?? (type === 'exact' ? 'Force upload' : 'Force upload')}
           </Button>
         </div>
       </div>

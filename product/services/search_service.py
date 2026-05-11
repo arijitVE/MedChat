@@ -18,7 +18,9 @@ def search_patients_for_doctor(
             """
             SELECT u.user_id, u.email, u.role, u.full_name, u.phone,
                    u.patient_uid, u.date_of_birth, u.sex,
-                   u.is_registered, u.is_active, u.created_at, u.updated_at
+                   u.age, u.gender, u.blood_group, u.allergies,
+                   u.chronic_conditions, u.address, u.emergency_contact,
+                   u.last_login, u.is_registered, u.is_active, u.created_at, u.updated_at
             FROM users u
             JOIN doctor_patient_assignments a ON a.patient_id = u.user_id
             WHERE a.doctor_id = :doctor_id
@@ -47,6 +49,8 @@ def search_reports_for_patient(
     date_to: str | None,
     document_type: str | None,
     db: Session,
+    status: str | None = None,
+    query: str | None = None,
 ) -> list[dict]:
     sql = """
         SELECT report_id, job_id, patient_id, uploaded_by, doctor_id,
@@ -74,6 +78,18 @@ def search_reports_for_patient(
             )
         """
         params["document_type"] = document_type
+    if status is not None:
+        sql += " AND lifecycle_status = :status"
+        params["status"] = status
+    if query is not None:
+        sql += """
+            AND (
+                file_name ILIKE :query
+                OR inferred_document_type ILIKE :query
+                OR upload_document_type ILIKE :query
+            )
+        """
+        params["query"] = f"%{query}%"
 
     sql += " ORDER BY first_uploaded_at DESC"
     rows = db.execute(text(sql), params).mappings().all()

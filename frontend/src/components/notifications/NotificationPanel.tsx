@@ -90,7 +90,21 @@ export function NotificationPanel({
       aria-label="Notifications"
     >
       <div className="border-b border-clinical-border px-4 py-3">
-        <h2 className="text-sm font-semibold text-clinical-text-primary">Notifications</h2>
+        <div className="flex items-center justify-between gap-3">
+          <h2 className="text-sm font-semibold text-clinical-text-primary">Notifications</h2>
+          {role === 'patient' ? (
+            <button
+              type="button"
+              className="text-xs font-medium text-clinical-primary hover:underline"
+              onClick={() => {
+                navigate('/patient/notifications');
+                onClose();
+              }}
+            >
+              View all
+            </button>
+          ) : null}
+        </div>
       </div>
       <div className="max-h-[400px] overflow-y-auto">
         {notifications.length === 0 ? (

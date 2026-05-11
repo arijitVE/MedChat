@@ -80,6 +80,14 @@ def _generate_patient_uid(db: Session) -> str:
         candidate_number += 1
 
 
+def _phone_value(body: SignupRequest) -> str | None:
+    return body.phone_number or body.phone
+
+
+def _gender_value(body: SignupRequest) -> str | None:
+    return body.gender or body.sex
+
+
 def _activate_existing_patient(db: Session, user_id: UUID, body: SignupRequest) -> TokenResponse:
     password_hash = hash_password(body.password)
     db.execute(
@@ -90,6 +98,13 @@ def _activate_existing_patient(db: Session, user_id: UUID, body: SignupRequest) 
                 password_hash = :password_hash,
                 full_name = :full_name,
                 phone = :phone,
+                age = :age,
+                gender = :gender,
+                blood_group = :blood_group,
+                allergies = :allergies,
+                chronic_conditions = :chronic_conditions,
+                address = :address,
+                emergency_contact = :emergency_contact,
                 date_of_birth = :date_of_birth,
                 sex = :sex,
                 is_registered = TRUE,
@@ -103,9 +118,16 @@ def _activate_existing_patient(db: Session, user_id: UUID, body: SignupRequest) 
             "email": body.email,
             "password_hash": password_hash,
             "full_name": body.full_name,
-            "phone": body.phone,
+            "phone": _phone_value(body),
+            "age": body.age,
+            "gender": _gender_value(body),
+            "blood_group": body.blood_group,
+            "allergies": body.allergies,
+            "chronic_conditions": body.chronic_conditions,
+            "address": body.address,
+            "emergency_contact": body.emergency_contact,
             "date_of_birth": body.date_of_birth,
-            "sex": body.sex,
+            "sex": _gender_value(body),
         },
     )
     _write_audit(db, user_id, "patient", "SIGNUP", entity_id=str(user_id))
@@ -146,12 +168,14 @@ def signup(body: SignupRequest, db: Session) -> TokenResponse:
             """
             INSERT INTO users (
                 email, password_hash, role, full_name, phone, license_number,
-                specialization, patient_uid, date_of_birth, sex,
+                specialization, patient_uid, age, gender, date_of_birth, sex,
+                blood_group, allergies, chronic_conditions, address, emergency_contact,
                 is_registered, is_active
             )
             VALUES (
                 :email, :password_hash, :role, :full_name, :phone, :license_number,
-                :specialization, :patient_uid, :date_of_birth, :sex,
+                :specialization, :patient_uid, :age, :gender, :date_of_birth, :sex,
+                :blood_group, :allergies, :chronic_conditions, :address, :emergency_contact,
                 TRUE, TRUE
             )
             RETURNING user_id
@@ -162,12 +186,19 @@ def signup(body: SignupRequest, db: Session) -> TokenResponse:
             "password_hash": hash_password(body.password),
             "role": body.role,
             "full_name": body.full_name,
-            "phone": body.phone,
+            "phone": _phone_value(body),
             "license_number": body.license_number,
             "specialization": body.specialization,
             "patient_uid": patient_uid,
+            "age": body.age,
+            "gender": _gender_value(body),
             "date_of_birth": body.date_of_birth,
-            "sex": body.sex,
+            "sex": _gender_value(body),
+            "blood_group": body.blood_group,
+            "allergies": body.allergies,
+            "chronic_conditions": body.chronic_conditions,
+            "address": body.address,
+            "emergency_contact": body.emergency_contact,
         },
     ).mappings().one()
     user_id = row["user_id"]
@@ -183,6 +214,10 @@ def login(body: LoginRequest, db: Session) -> TokenResponse:
     if not row["is_active"]:
         raise HTTPException(status_code=403, detail="Inactive user")
 
+    db.execute(
+        text("UPDATE users SET last_login = NOW(), updated_at = NOW() WHERE user_id = :user_id"),
+        {"user_id": row["user_id"]},
+    )
     _write_audit(db, row["user_id"], row["role"], "LOGIN", entity_id=str(row["user_id"]))
     db.commit()
     return _token_response(row["user_id"], row["role"], row["email"])

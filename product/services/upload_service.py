@@ -988,6 +988,7 @@ async def reupload_report(
     pipeline_document_type = _pipeline_document_type(report["inferred_document_type"])
     _upsert_document_job(db, report["job_id"], report["patient_id"], pipeline_document_type, file.filename or original_name)
     db.execute(text("DELETE FROM field_verifications WHERE report_id = :report_id"), {"report_id": report_id})
+    db.execute(text("DELETE FROM report_fields WHERE job_id = :job_id"), {"job_id": report["job_id"]})
     db.execute(
         text(
             """

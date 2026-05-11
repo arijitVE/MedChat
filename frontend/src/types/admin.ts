@@ -15,6 +15,14 @@ export interface UserListItem {
   email: string;
   role: 'doctor' | 'patient' | 'admin';
   phone: string | null;
+  age: number | null;
+  gender: string | null;
+  blood_group: string | null;
+  allergies: string | null;
+  chronic_conditions: string | null;
+  address: string | null;
+  emergency_contact: string | null;
+  last_login: string | null;
   patient_uid: string | null;
   license_number: string | null;
   specialization: string | null;

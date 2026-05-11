@@ -7,6 +7,7 @@ export const loginSchema = z.object({
 });
 
 const optionalSignupSexSchema = z.union([z.enum(signupSexValues), z.literal('')]).optional();
+const optionalTrimmedString = z.string().trim().optional();
 
 export const signupSchema = z
   .object({
@@ -14,14 +15,33 @@ export const signupSchema = z
     password: z.string().trim().min(8, 'Password must be at least 8 characters'),
     full_name: z.string().trim().min(2, 'Full name required'),
     role: z.enum(['doctor', 'patient']),
-    phone: z.string().optional(),
-    license_number: z.string().optional(),
+    phone: optionalTrimmedString,
+    phone_number: optionalTrimmedString,
+    gender: optionalSignupSexSchema,
+    license_number: optionalTrimmedString,
     specialization: z.enum(doctorSpecializations),
-    date_of_birth: z.string().optional(),
+    date_of_birth: optionalTrimmedString,
     sex: optionalSignupSexSchema,
-    claim_patient_uid: z.string().optional(),
+    blood_group: optionalTrimmedString,
+    allergies: optionalTrimmedString,
+    chronic_conditions: optionalTrimmedString,
+    address: optionalTrimmedString,
+    emergency_contact: optionalTrimmedString,
+    claim_patient_uid: optionalTrimmedString,
   })
   .refine((data) => data.role !== 'doctor' || !!data.license_number?.trim(), {
     message: 'License number is required for doctors',
     path: ['license_number'],
+  })
+  .refine((data) => data.role !== 'patient' || !!data.date_of_birth?.trim(), {
+    message: 'Date of birth is required for patients',
+    path: ['date_of_birth'],
+  })
+  .refine((data) => data.role !== 'patient' || !!data.gender, {
+    message: 'Gender is required for patients',
+    path: ['gender'],
+  })
+  .refine((data) => data.role !== 'patient' || !!data.phone_number?.trim(), {
+    message: 'Phone number is required for patients',
+    path: ['phone_number'],
   });
