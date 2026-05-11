@@ -20,6 +20,10 @@ export const signupSchema = z
     gender: optionalSignupSexSchema,
     license_number: optionalTrimmedString,
     specialization: z.enum(doctorSpecializations),
+    hospital_name: optionalTrimmedString,
+    years_of_experience: optionalTrimmedString,
+    department: optionalTrimmedString,
+    profile_photo: optionalTrimmedString,
     date_of_birth: optionalTrimmedString,
     sex: optionalSignupSexSchema,
     blood_group: optionalTrimmedString,
@@ -32,6 +36,17 @@ export const signupSchema = z
   .refine((data) => data.role !== 'doctor' || !!data.license_number?.trim(), {
     message: 'License number is required for doctors',
     path: ['license_number'],
+  })
+  .refine((data) => data.role !== 'doctor' || !!data.phone_number?.trim(), {
+    message: 'Phone number is required for doctors',
+    path: ['phone_number'],
+  })
+  .refine((data) => {
+    const value = data.years_of_experience?.trim();
+    return !value || /^\d+$/.test(value);
+  }, {
+    message: 'Years of experience must be a whole number',
+    path: ['years_of_experience'],
   })
   .refine((data) => data.role !== 'patient' || !!data.date_of_birth?.trim(), {
     message: 'Date of birth is required for patients',

@@ -23,13 +23,18 @@ const AdminSettingsPage = lazy(() => import('./pages/admin/SettingsPage'));
 const AdminSystemHealthPage = lazy(() => import('./pages/admin/SystemHealthPage'));
 const UsersPage = lazy(() => import('./pages/admin/UsersPage'));
 const AnalyticsPage = lazy(() => import('./pages/doctor/AnalyticsPage'));
+const AnalyticsOverviewPage = lazy(() => import('./pages/doctor/AnalyticsOverviewPage'));
 const ChatPage = lazy(() => import('./pages/doctor/ChatPage'));
+const DoctorAccountPage = lazy(() => import('./pages/doctor/AccountPage'));
 const DoctorDashboard = lazy(() => import('./pages/doctor/DoctorDashboard'));
 const HITLQueuePage = lazy(() => import('./pages/doctor/HITLQueuePage'));
+const DoctorNotificationsPage = lazy(() => import('./pages/doctor/NotificationsPage'));
 const PatientDetailPage = lazy(() => import('./pages/doctor/PatientDetailPage'));
 const PatientListPage = lazy(() => import('./pages/doctor/PatientListPage'));
 const ReportDetailPage = lazy(() => import('./pages/doctor/ReportDetailPage'));
+const DoctorReportsPage = lazy(() => import('./pages/doctor/ReportsPage'));
 const UploadPage = lazy(() => import('./pages/doctor/UploadPage'));
+const VerificationPendingPage = lazy(() => import('./pages/doctor/VerificationPendingPage'));
 const MyReportsPage = lazy(() => import('./pages/patient/MyReportsPage'));
 const AccountPage = lazy(() => import('./pages/patient/AccountPage'));
 const PatientChatPage = lazy(() => import('./pages/patient/PatientChatPage'));
@@ -52,11 +57,25 @@ function RoleGuard({ role }: { role: User['role'] }) {
   return <Outlet />;
 }
 
+function DoctorApprovalGuard() {
+  const user = useAuthStore((state) => state.user);
+
+  if (user?.verification_status !== 'approved') {
+    return <Navigate to="/doctor/verification-pending" replace />;
+  }
+
+  return <Outlet />;
+}
+
 function RootRedirect() {
   const { user, isAuthenticated } = useAuthStore();
 
   if (!isAuthenticated || !user) {
     return <Navigate to="/login" replace />;
+  }
+
+  if (user.role === 'doctor' && user.verification_status !== 'approved') {
+    return <Navigate to="/doctor/verification-pending" replace />;
   }
 
   return <Navigate to={`/${user.role}`} replace />;
@@ -75,15 +94,23 @@ function App() {
         <Route path="/signup" element={<SignupPage />} />
 
         <Route element={<RoleGuard role="doctor" />}>
-          <Route element={<AppShell />}>
-            <Route path="/doctor" element={<LazyRoute><DoctorDashboard /></LazyRoute>} />
-            <Route path="/doctor/patients" element={<LazyRoute><PatientListPage /></LazyRoute>} />
-            <Route path="/doctor/patients/:patientId" element={<LazyRoute><PatientDetailPage /></LazyRoute>} />
-            <Route path="/doctor/reports/:reportId" element={<LazyRoute><ReportDetailPage /></LazyRoute>} />
-            <Route path="/doctor/upload" element={<LazyRoute><UploadPage /></LazyRoute>} />
-            <Route path="/doctor/hitl" element={<LazyRoute><HITLQueuePage /></LazyRoute>} />
-            <Route path="/doctor/analytics/:patientId" element={<LazyRoute><AnalyticsPage /></LazyRoute>} />
-            <Route path="/doctor/chat" element={<LazyRoute><ChatPage /></LazyRoute>} />
+          <Route path="/doctor/verification-pending" element={<LazyRoute><VerificationPendingPage /></LazyRoute>} />
+          <Route element={<DoctorApprovalGuard />}>
+            <Route element={<AppShell />}>
+              <Route path="/doctor" element={<LazyRoute><DoctorDashboard /></LazyRoute>} />
+              <Route path="/doctor/patients" element={<LazyRoute><PatientListPage /></LazyRoute>} />
+              <Route path="/doctor/patients/:patientId" element={<LazyRoute><PatientDetailPage /></LazyRoute>} />
+              <Route path="/doctor/reports" element={<LazyRoute><DoctorReportsPage /></LazyRoute>} />
+              <Route path="/doctor/reports/:reportId" element={<LazyRoute><ReportDetailPage /></LazyRoute>} />
+              <Route path="/doctor/upload" element={<LazyRoute><UploadPage /></LazyRoute>} />
+              <Route path="/doctor/hitl" element={<LazyRoute><HITLQueuePage /></LazyRoute>} />
+              <Route path="/doctor/analytics" element={<LazyRoute><AnalyticsOverviewPage /></LazyRoute>} />
+              <Route path="/doctor/analytics/:patientId" element={<LazyRoute><AnalyticsPage /></LazyRoute>} />
+              <Route path="/doctor/chat" element={<LazyRoute><ChatPage /></LazyRoute>} />
+              <Route path="/doctor/notifications" element={<LazyRoute><DoctorNotificationsPage /></LazyRoute>} />
+              <Route path="/doctor/account" element={<LazyRoute><DoctorAccountPage /></LazyRoute>} />
+              <Route path="/doctor/logout" element={<LazyRoute><AdminLogoutPage /></LazyRoute>} />
+            </Route>
           </Route>
         </Route>
 

@@ -8,7 +8,7 @@ import { Toast } from '../../components/ui/Toast';
 import { useUploadReport } from '../../hooks/useReports';
 import { normalizeApiError } from '../../lib/apiError';
 import type { ApiError } from '../../lib/apiError';
-import type { DuplicateWarning, ExactDuplicateError, Report } from '../../types/report';
+import type { DuplicateWarning, ExactDuplicateError, UploadResponse } from '../../types/report';
 
 type DuplicateState =
   | {
@@ -51,16 +51,23 @@ export default function UploadPage() {
   const navigate = useNavigate();
   const upload = useUploadReport();
   const [patientUidInput, setPatientUidInput] = useState('');
+  const [patientEmailInput, setPatientEmailInput] = useState('');
+  const [patientNotRegistered, setPatientNotRegistered] = useState(false);
   const [confirmedPatientUid, setConfirmedPatientUid] = useState('');
+  const [confirmedPatientEmail, setConfirmedPatientEmail] = useState('');
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [progress, setProgress] = useState(0);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [duplicate, setDuplicate] = useState<DuplicateState | null>(null);
 
-  const uploadFile = async (file: File, force = false): Promise<Report> => {
+  const uploadFile = async (file: File, force = false): Promise<UploadResponse> => {
     const formData = new FormData();
     formData.append('file', file);
-    formData.append('patient_uid', confirmedPatientUid);
+    if (patientNotRegistered) {
+      formData.append('patient_email', confirmedPatientEmail);
+    } else {
+      formData.append('patient_uid', confirmedPatientUid);
+    }
     const report = await upload.mutateAsync({ formData, force });
     setProgress(100);
 
@@ -96,29 +103,65 @@ export default function UploadPage() {
       ) : null}
 
       <Card>
-        <h2 className="mb-4 text-base font-semibold text-clinical-text-primary">Step 1: Confirm Patient UID</h2>
-        <div className="flex flex-col gap-3 sm:flex-row">
+        <h2 className="mb-4 text-base font-semibold text-clinical-text-primary">Step 1: Confirm Patient</h2>
+        <label className="mb-3 flex items-center gap-2 text-sm text-clinical-text-secondary">
           <input
-            value={patientUidInput}
-            onChange={(event) => setPatientUidInput(event.target.value)}
-            className="rounded-md border border-clinical-border px-3 py-2 text-sm outline-none focus:border-clinical-primary focus:ring-2 focus:ring-clinical-primary-light"
-            placeholder="Patient UID"
-            aria-label="Patient UID"
+            type="checkbox"
+            checked={patientNotRegistered}
+            onChange={(event) => {
+              setPatientNotRegistered(event.target.checked);
+              setConfirmedPatientUid('');
+              setConfirmedPatientEmail('');
+            }}
           />
-          <Button onClick={() => setConfirmedPatientUid(patientUidInput.trim())} disabled={!patientUidInput.trim()}>
+          Patient not registered
+        </label>
+        <div className="flex flex-col gap-3 sm:flex-row">
+          {patientNotRegistered ? (
+            <input
+              value={patientEmailInput}
+              onChange={(event) => setPatientEmailInput(event.target.value)}
+              className="rounded-md border border-clinical-border px-3 py-2 text-sm outline-none focus:border-clinical-primary focus:ring-2 focus:ring-clinical-primary-light"
+              placeholder="Patient email"
+              aria-label="Patient email"
+            />
+          ) : (
+            <input
+              value={patientUidInput}
+              onChange={(event) => setPatientUidInput(event.target.value)}
+              className="rounded-md border border-clinical-border px-3 py-2 text-sm outline-none focus:border-clinical-primary focus:ring-2 focus:ring-clinical-primary-light"
+              placeholder="Patient UID"
+              aria-label="Patient UID"
+            />
+          )}
+          <Button
+            onClick={() => {
+              setConfirmedPatientUid(patientNotRegistered ? '' : patientUidInput.trim());
+              setConfirmedPatientEmail(patientNotRegistered ? patientEmailInput.trim() : '');
+            }}
+            disabled={patientNotRegistered ? !patientEmailInput.trim() : !patientUidInput.trim()}
+          >
             Confirm
           </Button>
         </div>
         {confirmedPatientUid ? (
           <p className="mt-3 text-sm text-clinical-auto">Patient UID confirmed: {confirmedPatientUid}</p>
         ) : null}
+        {confirmedPatientEmail ? (
+          <p className="mt-3 text-sm text-clinical-auto">Pending patient email confirmed: {confirmedPatientEmail}</p>
+        ) : null}
+        {patientNotRegistered ? (
+          <p className="mt-3 text-sm text-clinical-text-secondary">
+            Use this only for patients without an account. If the email already belongs to a patient, upload with Patient ID instead.
+          </p>
+        ) : null}
       </Card>
 
       <Card>
         <h2 className="mb-4 text-base font-semibold text-clinical-text-primary">Step 2: Upload Document</h2>
         <UploadDropzone
-          patientUid={confirmedPatientUid}
-          disabled={!confirmedPatientUid}
+          patientUid={patientNotRegistered ? confirmedPatientEmail : confirmedPatientUid}
+          disabled={patientNotRegistered ? !confirmedPatientEmail : !confirmedPatientUid}
           onFileSelected={setSelectedFile}
           onProgress={setProgress}
           onUpload={(file) => uploadFile(file)}

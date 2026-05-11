@@ -8,8 +8,10 @@ from sqlalchemy.orm import Session
 
 from product.schemas.user import UserProfile
 from product.schemas.verification import (
+    FieldEditRequest,
     FieldStatus,
     FieldVerificationRequest,
+    ReportVerificationResponse,
     VerificationResponse,
 )
 from product.services.assignment_service import verify_doctor_patient_access
@@ -21,7 +23,7 @@ def _get_report(db: Session, report_id: str | UUID):
     report = db.execute(
         text(
             """
-            SELECT report_id, job_id, patient_id, doctor_id, lifecycle_status
+            SELECT report_id, job_id, patient_id, uploaded_by, doctor_id, lifecycle_status
             FROM reports
             WHERE report_id = :report_id
             """
@@ -31,6 +33,16 @@ def _get_report(db: Session, report_id: str | UUID):
     if report is None:
         raise HTTPException(status_code=404, detail="Report not found")
     return report
+
+
+def _ensure_doctor_report_access(report, doctor_id, db: Session) -> None:
+    has_access = (
+        str(report["doctor_id"]) == str(doctor_id)
+        or str(report["uploaded_by"]) == str(doctor_id)
+        or verify_doctor_patient_access(doctor_id, report["patient_id"], db)
+    )
+    if not has_access:
+        raise HTTPException(status_code=403, detail="Doctor does not have access to this report")
 
 
 def _get_field(db: Session, job_id: str, field_name: str):
@@ -88,6 +100,40 @@ def _write_audit(
             "entity_id": field_name,
             "report_id": report_id,
             "field_name": field_name,
+            "old_value": old_value,
+            "new_value": new_value,
+        },
+    )
+
+
+def _write_report_audit(
+    db: Session,
+    user_id,
+    user_role: str,
+    action: str,
+    report_id,
+    old_value: str | None = None,
+    new_value: str | None = None,
+) -> None:
+    db.execute(
+        text(
+            """
+            INSERT INTO audit_log (
+                user_id, user_role, action, entity_type, entity_id,
+                report_id, old_value, new_value
+            )
+            VALUES (
+                :user_id, :user_role, :action, 'report', :entity_id,
+                :report_id, :old_value, :new_value
+            )
+            """
+        ),
+        {
+            "user_id": user_id,
+            "user_role": user_role,
+            "action": action,
+            "entity_id": str(report_id),
+            "report_id": report_id,
             "old_value": old_value,
             "new_value": new_value,
         },
@@ -353,6 +399,265 @@ def verify_field(
     return _response_from_row(row)
 
 
+def edit_field_value(
+    report_id: str,
+    field_name: str,
+    body: FieldEditRequest,
+    verifying_user: UserProfile,
+    db: Session,
+) -> VerificationResponse:
+    if verifying_user.role != "doctor":
+        raise HTTPException(status_code=403, detail="Only doctors can edit report fields")
+    report = _get_report(db, report_id)
+    _ensure_doctor_report_access(report, verifying_user.user_id, db)
+
+    locked = db.execute(
+        text(
+            """
+            SELECT 1
+            FROM field_verifications
+            WHERE report_id = :report_id
+              AND is_final = TRUE
+            LIMIT 1
+            """
+        ),
+        {"report_id": report_id},
+    ).first()
+    if locked is not None:
+        raise HTTPException(status_code=403, detail="Unlock report before editing fields")
+
+    field = _get_field(db, report["job_id"], field_name)
+    new_value = body.edited_value.strip()
+    if not new_value or not validate_field(field_name, new_value, DocumentType.unknown):
+        raise HTTPException(status_code=400, detail="Invalid edited value")
+
+    db.execute(
+        text(
+            """
+            UPDATE report_fields
+            SET value = :value,
+                numeric_value = :numeric_value,
+                status = 'hitl'
+            WHERE job_id = :job_id
+              AND name = :field_name
+            """
+        ),
+        {
+            "value": new_value,
+            "numeric_value": _parse_numeric(new_value),
+            "job_id": report["job_id"],
+            "field_name": field_name,
+        },
+    )
+
+    row = db.execute(
+        text(
+            """
+            INSERT INTO field_verifications (
+                report_id, job_id, field_name, field_value,
+                verified_by, verifier_role, verification_type,
+                edited_value, edit_reason, is_final, verified_at
+            )
+            VALUES (
+                :report_id, :job_id, :field_name, :field_value,
+                :verified_by, 'doctor', 'edited',
+                :edited_value, :edit_reason, FALSE, clock_timestamp()
+            )
+            RETURNING verification_id, report_id, job_id, field_name, field_value,
+                      verified_by, verifier_role, verification_type, edited_value,
+                      edit_reason, is_final, verified_at
+            """
+        ),
+        {
+            "report_id": report_id,
+            "job_id": report["job_id"],
+            "field_name": field_name,
+            "field_value": new_value,
+            "verified_by": verifying_user.user_id,
+            "edited_value": new_value,
+            "edit_reason": body.edit_reason,
+        },
+    ).mappings().one()
+
+    db.execute(
+        text(
+            """
+            UPDATE reports
+            SET lifecycle_status = 'hitl_required',
+                released_to_patient = FALSE,
+                last_edited_at = NOW()
+            WHERE report_id = :report_id
+            """
+        ),
+        {"report_id": report_id},
+    )
+    _write_audit(
+        db,
+        verifying_user.user_id,
+        verifying_user.role,
+        "EDIT_FIELD",
+        report_id,
+        field_name,
+        field["value"],
+        new_value,
+    )
+    ingest_patient_record(str(report["patient_id"]), report["job_id"], db)
+    invalidate_patient(str(report["patient_id"]))
+    db.commit()
+    return _response_from_row(row)
+
+
+def verify_report(
+    report_id: str,
+    verifying_user: UserProfile,
+    db: Session,
+) -> ReportVerificationResponse:
+    if verifying_user.role != "doctor":
+        raise HTTPException(status_code=403, detail="Only doctors can verify reports")
+    report = _get_report(db, report_id)
+    _ensure_doctor_report_access(report, verifying_user.user_id, db)
+
+    fields = db.execute(
+        text(
+            """
+            SELECT name, value
+            FROM report_fields
+            WHERE job_id = :job_id
+            ORDER BY id ASC
+            """
+        ),
+        {"job_id": report["job_id"]},
+    ).mappings().all()
+    if not fields:
+        raise HTTPException(status_code=400, detail="No extracted fields found for this report")
+
+    db.execute(
+        text(
+            """
+            UPDATE field_verifications
+            SET is_final = FALSE
+            WHERE report_id = :report_id
+              AND is_final = TRUE
+            """
+        ),
+        {"report_id": report_id},
+    )
+
+    for field in fields:
+        db.execute(
+            text(
+                """
+                INSERT INTO field_verifications (
+                    report_id, job_id, field_name, field_value,
+                    verified_by, verifier_role, verification_type,
+                    edited_value, edit_reason, is_final, verified_at
+                )
+                VALUES (
+                    :report_id, :job_id, :field_name, :field_value,
+                    :verified_by, 'doctor', 'approved',
+                    NULL, 'Report-level verification', TRUE, clock_timestamp()
+                )
+                """
+            ),
+            {
+                "report_id": report_id,
+                "job_id": report["job_id"],
+                "field_name": field["name"],
+                "field_value": field["value"],
+                "verified_by": verifying_user.user_id,
+            },
+        )
+
+    db.execute(
+        text(
+            """
+            UPDATE reports
+            SET lifecycle_status = 'doctor_verified',
+                released_to_patient = TRUE,
+                last_edited_at = NOW()
+            WHERE report_id = :report_id
+            """
+        ),
+        {"report_id": report_id},
+    )
+    _write_report_audit(
+        db,
+        verifying_user.user_id,
+        "doctor",
+        "VERIFY_REPORT",
+        report_id,
+        old_value=report["lifecycle_status"],
+        new_value="doctor_verified",
+    )
+    _send_notification(
+        db,
+        report["patient_id"],
+        verifying_user.user_id,
+        "REPORT_VERIFIED",
+        "report",
+        report_id,
+    )
+    ingest_patient_record(str(report["patient_id"]), report["job_id"], db)
+    invalidate_patient(str(report["patient_id"]))
+    db.commit()
+    return ReportVerificationResponse(
+        report_id=report["report_id"],
+        status="doctor_verified",
+        verified_fields=len(fields),
+    )
+
+
+def unlock_report(
+    report_id: str,
+    verifying_user: UserProfile,
+    db: Session,
+) -> ReportVerificationResponse:
+    if verifying_user.role != "doctor":
+        raise HTTPException(status_code=403, detail="Only doctors can unlock reports")
+    report = _get_report(db, report_id)
+    _ensure_doctor_report_access(report, verifying_user.user_id, db)
+
+    updated = db.execute(
+        text(
+            """
+            UPDATE field_verifications
+            SET is_final = FALSE
+            WHERE report_id = :report_id
+              AND is_final = TRUE
+            """
+        ),
+        {"report_id": report_id},
+    )
+    db.execute(
+        text(
+            """
+            UPDATE reports
+            SET lifecycle_status = 'hitl_required',
+                released_to_patient = FALSE,
+                last_edited_at = NOW()
+            WHERE report_id = :report_id
+            """
+        ),
+        {"report_id": report_id},
+    )
+    _write_report_audit(
+        db,
+        verifying_user.user_id,
+        "doctor",
+        "UNLOCK_REPORT",
+        report_id,
+        old_value=report["lifecycle_status"],
+        new_value="hitl_required",
+    )
+    invalidate_patient(str(report["patient_id"]))
+    db.commit()
+    return ReportVerificationResponse(
+        report_id=report["report_id"],
+        status="hitl_required",
+        verified_fields=updated.rowcount or 0,
+    )
+
+
 def get_field_verification_status(
     report_id: str,
     db: Session,
@@ -362,7 +667,7 @@ def get_field_verification_status(
     fields = db.execute(
         text(
             """
-            SELECT name, value, confidence, status
+            SELECT name, value, unit, reference_range, numeric_value, confidence, status
             FROM report_fields
             WHERE job_id = :job_id
             ORDER BY id ASC
@@ -397,6 +702,9 @@ def get_field_verification_status(
                 value=value,
                 display_value=display_value,
                 is_value_hidden=is_hitl_hidden,
+                unit=field["unit"],
+                reference_range=field["reference_range"],
+                numeric_value=field["numeric_value"],
                 confidence=field["confidence"],
                 pipeline_status=pipeline_status,
                 patient_verified=patient_verified,

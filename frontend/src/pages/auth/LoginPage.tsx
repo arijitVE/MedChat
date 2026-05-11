@@ -11,6 +11,13 @@ import { useLogin } from '../../hooks/useAuth';
 type LoginFormValues = z.infer<typeof loginSchema>;
 type LoginFieldErrors = Partial<Record<keyof LoginFormValues, string>>;
 
+function getPostAuthPath(role: string, verificationStatus?: string | null): string {
+  if (role === 'doctor' && verificationStatus !== 'approved') {
+    return '/doctor/verification-pending';
+  }
+  return `/${role}`;
+}
+
 function getLoginErrorMessage(error: unknown): string {
   const apiError = normalizeApiError(error);
 
@@ -68,7 +75,7 @@ export default function LoginPage() {
 
     try {
       const response = await login.mutateAsync(values);
-      navigate(`/${response.user.role}`);
+      navigate(getPostAuthPath(response.user.role, response.user.verification_status));
     } catch (error) {
       setFormError(getLoginErrorMessage(error));
     }

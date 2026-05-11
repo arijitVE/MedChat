@@ -14,6 +14,10 @@ class SignupRequest(BaseModel):
     phone_number: str | None = None
     license_number: str | None = None
     specialization: str | None = None
+    hospital_name: str | None = None
+    years_of_experience: int | None = None
+    department: str | None = None
+    profile_photo: str | None = None
     age: int | None = None
     gender: Literal["male", "female", "other"] | None = None
     date_of_birth: date | None = None

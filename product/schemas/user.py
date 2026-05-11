@@ -23,6 +23,8 @@ class UserProfile(BaseModel):
     last_login: datetime | None = None
     is_registered: bool = True
     is_active: bool = True
+    verification_status: str | None = None
+    verification_rejection_reason: str | None = None
     created_at: datetime
     updated_at: datetime
 
@@ -31,6 +33,10 @@ class DoctorProfile(UserProfile):
     role: Literal["doctor"] = "doctor"
     license_number: str | None = None
     specialization: str | None = None
+    hospital_name: str | None = None
+    years_of_experience: int | None = None
+    department: str | None = None
+    profile_photo: str | None = None
 
 
 class PatientProfile(UserProfile):

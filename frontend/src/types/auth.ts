@@ -32,9 +32,15 @@ export interface User {
   updated_at?: string;
   last_login?: string | null;
   account_status?: string | null;
+  verification_status?: 'pending_verification' | 'approved' | 'rejected' | 'suspended' | string | null;
+  verification_rejection_reason?: string | null;
   patient_uid?: string;
   license_number?: string;
   specialization?: string;
+  hospital_name?: string | null;
+  years_of_experience?: number | null;
+  department?: string | null;
+  profile_photo?: string | null;
 }
 
 export interface TokenResponse {
@@ -66,6 +72,10 @@ export interface SignupRequest {
   gender?: SignupSex | null;
   license_number?: string | null;
   specialization?: DoctorSpecialization | null;
+  hospital_name?: string | null;
+  years_of_experience?: number | null;
+  department?: string | null;
+  profile_photo?: string | null;
   date_of_birth?: string | null;
   sex?: SignupSex | null;
   blood_group?: string | null;

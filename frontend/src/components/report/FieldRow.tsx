@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { CheckCircle2, Lock, PencilLine } from 'lucide-react';
 import { Button } from '../ui/Button';
 import { Badge } from '../ui/Badge';
@@ -8,6 +9,9 @@ interface FieldRowProps {
   reportId: string;
   role: 'doctor' | 'patient';
   onVerifyField?: (reportId: string, field: ReportField) => void;
+  onEditField?: (reportId: string, field: ReportField, value: string) => void;
+  reportLocked?: boolean;
+  isEditing?: boolean;
 }
 
 function getFieldStatus(field: ReportField) {
@@ -33,10 +37,21 @@ function canVerifyField(field: ReportField, role: 'doctor' | 'patient'): boolean
   return field.pipeline_status === 'hitl' && !field.patient_verified;
 }
 
-export function FieldRow({ field, reportId, role, onVerifyField }: FieldRowProps) {
+export function FieldRow({
+  field,
+  reportId,
+  role,
+  onVerifyField,
+  onEditField,
+  reportLocked = false,
+  isEditing = false,
+}: FieldRowProps) {
   const status = getFieldStatus(field);
   const StatusIcon = status.icon;
   const canVerify = canVerifyField(field, role);
+  const [isInlineEditing, setIsInlineEditing] = useState(false);
+  const [draftValue, setDraftValue] = useState(field.value ?? field.display_value ?? '');
+  const canEdit = role === 'doctor' && !reportLocked && Boolean(onEditField);
 
   return (
     <tr className="hover:bg-slate-50">
@@ -44,7 +59,16 @@ export function FieldRow({ field, reportId, role, onVerifyField }: FieldRowProps
         {field.field_name}
       </td>
       <td className="px-4 py-3 text-sm text-clinical-text-primary">
-        {field.display_value}
+        {isInlineEditing ? (
+          <input
+            value={draftValue}
+            onChange={(event) => setDraftValue(event.target.value)}
+            className="w-full min-w-40 rounded-md border border-clinical-border px-2 py-1 text-sm outline-none focus:border-clinical-primary focus:ring-2 focus:ring-clinical-primary-light"
+            aria-label={`Edit ${field.field_name}`}
+          />
+        ) : (
+          field.display_value
+        )}
       </td>
       <td className="px-4 py-3 text-sm text-clinical-text-secondary">
         {field.reference_range ?? '-'}
@@ -59,13 +83,44 @@ export function FieldRow({ field, reportId, role, onVerifyField }: FieldRowProps
         </Badge>
       </td>
       <td className="px-4 py-3 text-right">
-        {canVerify && onVerifyField ? (
+        {isInlineEditing ? (
+          <div className="flex justify-end gap-2">
+            <Button
+              className="min-h-8 px-3 py-1"
+              loading={isEditing}
+              onClick={() => {
+                onEditField?.(reportId, field, draftValue);
+                setIsInlineEditing(false);
+              }}
+            >
+              Save
+            </Button>
+            <Button
+              variant="ghost"
+              className="min-h-8 px-3 py-1"
+              onClick={() => {
+                setDraftValue(field.value ?? field.display_value ?? '');
+                setIsInlineEditing(false);
+              }}
+            >
+              Cancel
+            </Button>
+          </div>
+        ) : canEdit ? (
+          <Button
+            variant="secondary"
+            className="min-h-8 px-3 py-1"
+            onClick={() => setIsInlineEditing(true)}
+          >
+            Edit
+          </Button>
+        ) : canVerify && onVerifyField ? (
           <Button variant="secondary" className="min-h-8 px-3 py-1" onClick={() => onVerifyField(reportId, field)}>
             Verify
           </Button>
         ) : (
           <span className="text-xs text-clinical-text-muted">
-            {field.is_final ? 'Final' : 'No action'}
+            {reportLocked ? 'Locked' : field.is_final ? 'Final' : 'No action'}
           </span>
         )}
       </td>

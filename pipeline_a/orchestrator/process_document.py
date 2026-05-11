@@ -20,7 +20,14 @@ from pipeline_a.conflict.resolver import resolve
 
 logger = get_logger(__name__)
 
-def run(job_id: str, patient_id: str, file_bytes_hex: str, document_type: str, db: Session) -> PipelineAOutput:
+def run(
+    job_id: str,
+    patient_id: str,
+    file_bytes_hex: str,
+    document_type: str,
+    db: Session,
+    file_name: str = "",
+) -> PipelineAOutput:
     """Run all Pipeline A stages in exact order."""
     t_start = time.perf_counter()
     settings = get_settings()
@@ -29,6 +36,8 @@ def run(job_id: str, patient_id: str, file_bytes_hex: str, document_type: str, d
         # 0. Prep
         file_bytes = bytes.fromhex(file_bytes_hex)
         doc_type_enum = DocumentType(document_type)
+        if doc_type_enum == DocumentType.unknown:
+            doc_type_enum = loader.detect_document_type(file_name)
         
         # 1. Ingestion
         mime_type = loader.detect_mime_type(file_bytes)
@@ -38,7 +47,7 @@ def run(job_id: str, patient_id: str, file_bytes_hex: str, document_type: str, d
             file_bytes=file_bytes,
             mime_type=mime_type,
             document_type=doc_type_enum,
-            file_name=""
+            file_name=file_name,
         )
         
         # 2. OCR
@@ -51,6 +60,17 @@ def run(job_id: str, patient_id: str, file_bytes_hex: str, document_type: str, d
             avg_confidence=avg_conf,
             low_confidence=low_conf
         )
+
+        if doc.document_type == DocumentType.unknown:
+            inferred_doc_type = loader.detect_document_type_from_text(ocr_result.raw_text)
+            if inferred_doc_type != DocumentType.unknown:
+                doc = doc.model_copy(update={"document_type": inferred_doc_type})
+                logger.info(
+                    "document_type_inferred_from_ocr",
+                    stage="ingestion",
+                    job_id=job_id,
+                    document_type=inferred_doc_type.value,
+                )
         
         # 3. LLM Extraction
         llm_result = extract_fields(ocr_result.raw_text, doc.document_type, job_id=job_id)

@@ -52,6 +52,7 @@ function AssistantResponse({ response }: { response: DoctorQueryResponse }) {
 }
 
 export default function ChatPage() {
+  const [mode, setMode] = useState<'patient' | 'global'>('patient');
   const [patientId, setPatientId] = useState('');
   const [input, setInput] = useState('');
   const [messages, setMessages] = useState<ChatMessage[]>([]);
@@ -65,7 +66,7 @@ export default function ChatPage() {
 
   const sendMessage = async () => {
     const text = input.trim();
-    if (!text || !patientId.trim()) {
+    if (!text || (mode === 'patient' && !patientId.trim())) {
       return;
     }
 
@@ -84,7 +85,10 @@ export default function ChatPage() {
 
     try {
       const response = await doctorQuery.mutateAsync({
-        data: { text, patient_id: patientId.trim() },
+        data: {
+          text,
+          patient_id: mode === 'patient' ? patientId.trim() : undefined,
+        },
         signal: abortController.signal,
       });
       const assistantMessage: ChatMessage = {
@@ -111,19 +115,42 @@ export default function ChatPage() {
     <div className="space-y-6">
       <div>
         <h1 className="text-lg font-semibold text-clinical-text-primary">Doctor Chat</h1>
-        <p className="mt-1 text-sm text-clinical-text-secondary">Ask typed clinical questions for one patient.</p>
+        <p className="mt-1 text-sm text-clinical-text-secondary">Use patient-specific mode for scoped records, or global mode for aggregate workflow insights.</p>
       </div>
 
       <Card>
-        <label className="block text-sm font-medium text-clinical-text-primary" htmlFor="patient-id">
-          Patient ID
-        </label>
-        <input
-          id="patient-id"
-          value={patientId}
-          onChange={(event) => setPatientId(event.target.value)}
-          className="mt-1 w-full rounded-md border border-clinical-border px-3 py-2 text-sm outline-none focus:border-clinical-primary focus:ring-2 focus:ring-clinical-primary-light"
-        />
+        <div className="grid gap-3 sm:grid-cols-2">
+          <button
+            type="button"
+            className={`rounded-md border px-3 py-2 text-left text-sm ${mode === 'patient' ? 'border-clinical-primary bg-clinical-primary-light text-clinical-primary' : 'border-clinical-border text-clinical-text-secondary'}`}
+            onClick={() => setMode('patient')}
+          >
+            Patient-Specific Mode
+          </button>
+          <button
+            type="button"
+            className={`rounded-md border px-3 py-2 text-left text-sm ${mode === 'global' ? 'border-clinical-primary bg-clinical-primary-light text-clinical-primary' : 'border-clinical-border text-clinical-text-secondary'}`}
+            onClick={() => setMode('global')}
+          >
+            Global Analytics Mode
+          </button>
+        </div>
+        {mode === 'patient' ? (
+          <div className="mt-4">
+            <label className="block text-sm font-medium text-clinical-text-primary" htmlFor="patient-id">
+              Patient ID
+            </label>
+            <input
+              id="patient-id"
+              value={patientId}
+              onChange={(event) => setPatientId(event.target.value)}
+              className="mt-1 w-full rounded-md border border-clinical-border px-3 py-2 text-sm outline-none focus:border-clinical-primary focus:ring-2 focus:ring-clinical-primary-light"
+            />
+          </div>
+        ) : null}
+        <p className="mt-3 text-sm font-medium text-clinical-text-secondary">
+          Active context: {mode === 'patient' ? `Patient-Specific Mode${patientId ? ` · ${patientId}` : ''}` : 'Global Analytics Mode'}
+        </p>
       </Card>
 
       {errorMessage ? (
@@ -171,10 +198,10 @@ export default function ChatPage() {
             value={input}
             onChange={(event) => setInput(event.target.value)}
             className="min-w-0 flex-1 rounded-md border border-clinical-border px-3 py-2 text-sm outline-none focus:border-clinical-primary focus:ring-2 focus:ring-clinical-primary-light"
-            placeholder="Ask about this patient"
+            placeholder={mode === 'patient' ? 'Ask about this patient' : 'Ask about aggregate workflow trends'}
             aria-label="Chat message"
           />
-          <Button type="submit" loading={doctorQuery.isPending} disabled={!patientId.trim()}>
+          <Button type="submit" loading={doctorQuery.isPending} disabled={mode === 'patient' && !patientId.trim()}>
             Send
           </Button>
         </form>

@@ -22,6 +22,12 @@ type MyReportsFilters = {
   query?: string;
 };
 
+type DoctorReportsFilters = {
+  lifecycle_status?: string;
+  patient_id?: string;
+  query?: string;
+};
+
 function isReportProcessing(report: Report): boolean {
   return report.lifecycle_status === 'processing' || report.lifecycle_status === 'uploaded';
 }
@@ -40,8 +46,27 @@ export function useReportDetail(reportId: string) {
     enabled: Boolean(reportId),
     staleTime: staleTime.reportDetail,
     refetchInterval: (query) => {
-      const status = query.state.data?.lifecycle_status;
+      const status = query.state.data?.report.lifecycle_status;
       return status === 'processing' || status === 'uploaded' ? 8000 : false;
+    },
+  });
+}
+
+export function useDoctorReports(filters?: DoctorReportsFilters) {
+  return useQuery({
+    queryKey: queryKeys.reports.list({ role: 'doctor', ...filters }),
+    queryFn: async () => {
+      try {
+        const response = await reportsApi.getDoctorReports(filters);
+        return response.data;
+      } catch (error) {
+        throw normalizeApiError(error);
+      }
+    },
+    staleTime: staleTime.reportDetail,
+    refetchInterval: (query) => {
+      const reports = query.state.data ?? [];
+      return reports.some(isReportProcessing) ? 10000 : false;
     },
   });
 }
@@ -136,10 +161,10 @@ export function useMyReportFields(reportId: string) {
 export function useUploadReport() {
   const queryClient = useQueryClient();
 
-  return useMutation<Report, ApiError, UploadVariables>({
-    mutationFn: async ({ formData }) => {
+  return useMutation<UploadResponse, ApiError, UploadVariables>({
+    mutationFn: async ({ formData, force }) => {
       try {
-        const response = await reportsApi.upload(formData);
+        const response = await reportsApi.upload(formData, force);
         return response.data;
       } catch (error) {
         throw normalizeApiError(error);
@@ -147,6 +172,21 @@ export function useUploadReport() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.reports.all });
+    },
+  });
+}
+
+export function useOpenDoctorRawReport() {
+  return useMutation<void, ApiError, string>({
+    mutationFn: async (reportId) => {
+      try {
+        const response = await reportsApi.getDoctorRawReport(reportId);
+        const url = URL.createObjectURL(response.data);
+        window.open(url, '_blank', 'noopener,noreferrer');
+        window.setTimeout(() => URL.revokeObjectURL(url), 60_000);
+      } catch (error) {
+        throw normalizeApiError(error);
+      }
     },
   });
 }

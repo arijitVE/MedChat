@@ -8,6 +8,9 @@ interface FieldsTableProps {
   role: 'doctor' | 'patient';
   isLoading?: boolean;
   onVerifyField?: (reportId: string, field: ReportField) => void;
+  onEditField?: (reportId: string, field: ReportField, value: string) => void;
+  reportLocked?: boolean;
+  editingFieldName?: string | null;
   className?: string;
 }
 
@@ -17,6 +20,9 @@ export function FieldsTable({
   role,
   isLoading = false,
   onVerifyField,
+  onEditField,
+  reportLocked = false,
+  editingFieldName,
   className = '',
 }: FieldsTableProps) {
   return (
@@ -59,6 +65,9 @@ export function FieldsTable({
                 reportId={reportId}
                 role={role}
                 onVerifyField={onVerifyField}
+                onEditField={onEditField}
+                reportLocked={reportLocked}
+                isEditing={editingFieldName === field.field_name}
               />
             ))
           )}

@@ -6,8 +6,9 @@ from pydantic import BaseModel, ConfigDict
 
 
 class AssignmentRequest(BaseModel):
-    patient_id: UUID
-    assigned_by: Literal["admin", "doctor", "patient"]
+    patient_id: UUID | None = None
+    patient_uid: str | None = None
+    assigned_by: Literal["admin", "doctor", "patient"] = "doctor"
 
 
 class AssignmentResponse(BaseModel):

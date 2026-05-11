@@ -26,6 +26,10 @@ class PasswordResetRequest(BaseModel):
     new_password: str
 
 
+class DoctorVerificationRequest(BaseModel):
+    reason: str | None = None
+
+
 @router.get("/stats", response_model=AdminStats)
 def get_stats(
     current_user: UserProfile = Depends(require_role("admin")),
@@ -222,3 +226,49 @@ def activate_user(
     db: Session = Depends(get_db),
 ):
     return admin_service.set_user_active(user_id, True, current_user.user_id, db)
+
+
+@router.put("/doctors/{doctor_id}/approve")
+def approve_doctor(
+    doctor_id: UUID,
+    current_user: UserProfile = Depends(require_role("admin")),
+    db: Session = Depends(get_db),
+):
+    return admin_service.set_doctor_verification_status(
+        doctor_id,
+        "approved",
+        current_user.user_id,
+        db,
+    )
+
+
+@router.put("/doctors/{doctor_id}/reject")
+def reject_doctor(
+    doctor_id: UUID,
+    body: DoctorVerificationRequest | None = None,
+    current_user: UserProfile = Depends(require_role("admin")),
+    db: Session = Depends(get_db),
+):
+    return admin_service.set_doctor_verification_status(
+        doctor_id,
+        "rejected",
+        current_user.user_id,
+        db,
+        reason=body.reason if body else None,
+    )
+
+
+@router.put("/doctors/{doctor_id}/suspend")
+def suspend_doctor(
+    doctor_id: UUID,
+    body: DoctorVerificationRequest | None = None,
+    current_user: UserProfile = Depends(require_role("admin")),
+    db: Session = Depends(get_db),
+):
+    return admin_service.set_doctor_verification_status(
+        doctor_id,
+        "suspended",
+        current_user.user_id,
+        db,
+        reason=body.reason if body else None,
+    )

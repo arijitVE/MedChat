@@ -11,7 +11,7 @@ from pipeline_a.orchestrator import process_document
 logger = get_logger(__name__)
 
 @celery_app.task(bind=True, max_retries=2)
-def process_document_task(self, job_id: str, patient_id: str, file_bytes_hex: str, document_type: str):
+def process_document_task(self, job_id: str, patient_id: str, file_bytes_hex: str, document_type: str, file_name: str = ""):
     start_time = time.time()
     db = SessionLocal()
     retry_count = self.request.retries
@@ -21,7 +21,7 @@ def process_document_task(self, job_id: str, patient_id: str, file_bytes_hex: st
         upsert_job(db, job_id, status=JobStatus.processing.value)
         
         # Call orchestrator.run() ONLY
-        output = process_document.run(job_id, patient_id, file_bytes_hex, document_type, db)
+        output = process_document.run(job_id, patient_id, file_bytes_hex, document_type, db, file_name=file_name)
         
         # Upsert the result (safe on retry)
         upsert_job(

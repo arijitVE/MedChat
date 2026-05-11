@@ -21,7 +21,10 @@ def get_me(
             SELECT user_id, email, role, full_name, phone, age, gender,
                    blood_group, allergies, chronic_conditions, address,
                    emergency_contact, patient_uid, date_of_birth, sex,
-                   license_number, specialization, is_registered, is_active,
+                   license_number, specialization, hospital_name,
+                   years_of_experience, department, profile_photo,
+                   verification_status, verification_rejection_reason,
+                   is_registered, is_active,
                    created_at, updated_at, last_login,
                    CASE WHEN is_active THEN 'active' ELSE 'inactive' END AS account_status
             FROM users

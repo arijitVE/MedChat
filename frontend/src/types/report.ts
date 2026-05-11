@@ -6,9 +6,11 @@ export type LifecycleStatus =
   | 'patient_verified'
   | 'doctor_verified'
   | 'fully_verified'
+  | 'verified'
+  | 'released'
   | 'failed';
 
-export type FieldPipelineStatus = 'auto' | 'hitl';
+export type FieldPipelineStatus = 'auto' | 'hitl' | 'missing';
 
 export interface Report {
   report_id: string;
@@ -27,6 +29,11 @@ export interface Report {
   is_duplicate: boolean;
   duplicate_of: string | null;
   duplicate_warning?: DuplicateWarning | null;
+}
+
+export interface ReportDetailResponse {
+  report: Report;
+  fields: ReportField[];
 }
 
 export interface DuplicateWarning {
@@ -57,6 +64,7 @@ export interface ReportField {
   field_name: string;
   value: string | null;
   display_value: string;
+  is_value_hidden?: boolean;
   numeric_value: number | null;
   unit: string | null;
   reference_range: string | null;
@@ -75,6 +83,17 @@ export interface FieldVerifyRequest {
   verification_type: 'approved' | 'edited' | 'rejected';
   edited_value?: string;
   edit_reason?: string;
+}
+
+export interface FieldEditRequest {
+  edited_value: string;
+  edit_reason?: string;
+}
+
+export interface ReportVerificationResponse {
+  report_id: string;
+  status: LifecycleStatus | string;
+  verified_fields: number;
 }
 
 export interface DoctorDashboard {

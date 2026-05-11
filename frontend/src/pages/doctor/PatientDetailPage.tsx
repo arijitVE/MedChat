@@ -1,20 +1,24 @@
 import { useMemo, useState } from 'react';
-import { useParams } from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router-dom';
 import { AbnormalityPanel } from '../../components/charts/AbnormalityPanel';
 import { TrendLineChart } from '../../components/charts/TrendLineChart';
 import { RetryPanel } from '../../components/feedback/RetryPanel';
+import { ReportCard } from '../../components/report/ReportCard';
 import { Card } from '../../components/ui/Card';
 import { EmptyState } from '../../components/ui/EmptyState';
 import { Skeleton } from '../../components/ui/Skeleton';
 import { useDoctorAssignments } from '../../hooks/useAssignments';
 import { useAnalytics, useTrend } from '../../hooks/useIntelligence';
+import { useDoctorReports } from '../../hooks/useReports';
 import { normalizeApiError } from '../../lib/apiError';
 
 export default function PatientDetailPage() {
   const { patientId = '' } = useParams();
+  const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState<'reports' | 'analytics'>('reports');
   const assignments = useDoctorAssignments();
   const analytics = useAnalytics(patientId);
+  const reports = useDoctorReports({ patient_id: patientId });
   const assignment = useMemo(
     () => (assignments.data ?? []).find((item) => item.patient_id === patientId),
     [assignments.data, patientId],
@@ -63,10 +67,23 @@ export default function PatientDetailPage() {
       </div>
 
       {activeTab === 'reports' ? (
-        <>
-          {/* TODO: restore this list when the backend exposes a doctor route for patient reports. */}
-          <EmptyState title="Patient report lists are not exposed by the current backend routes" />
-        </>
+        reports.isError ? (
+          <RetryPanel onRetry={() => void reports.refetch()} message={normalizeApiError(reports.error).message} />
+        ) : reports.isLoading ? (
+          <Skeleton variant="card" rows={5} />
+        ) : (reports.data ?? []).length === 0 ? (
+          <EmptyState title="No reports found for this patient" />
+        ) : (
+          <div className="grid gap-4">
+            {(reports.data ?? []).map((report) => (
+              <ReportCard
+                key={report.report_id}
+                report={report}
+                onSelect={() => navigate(`/doctor/reports/${report.report_id}`)}
+              />
+            ))}
+          </div>
+        )
       ) : analytics.isError ? (
         <RetryPanel onRetry={() => void analytics.refetch()} message={normalizeApiError(analytics.error).message} />
       ) : (

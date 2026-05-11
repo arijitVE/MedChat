@@ -26,6 +26,12 @@ export interface UserListItem {
   patient_uid: string | null;
   license_number: string | null;
   specialization: string | null;
+  hospital_name: string | null;
+  years_of_experience: number | null;
+  department: string | null;
+  profile_photo: string | null;
+  verification_status: string | null;
+  verification_rejection_reason: string | null;
   date_of_birth: string | null;
   sex: string | null;
   is_registered: boolean;

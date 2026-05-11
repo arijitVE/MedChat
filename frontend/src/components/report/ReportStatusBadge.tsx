@@ -14,6 +14,8 @@ const statusConfig: Record<LifecycleStatus, { label: string; variant: 'auto' | '
   patient_verified: { label: 'Reviewed', variant: 'verified' },
   doctor_verified: { label: 'Verified', variant: 'final' },
   fully_verified: { label: 'Released', variant: 'final' },
+  verified: { label: 'Verified', variant: 'final' },
+  released: { label: 'Released', variant: 'final' },
   failed: { label: 'Processing failed', variant: 'hitl' },
 };
 

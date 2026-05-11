@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { AlertTriangle } from 'lucide-react';
 import { RetryPanel } from '../../components/feedback/RetryPanel';
@@ -6,33 +7,55 @@ import { ReportStatusBadge } from '../../components/report/ReportStatusBadge';
 import { Button } from '../../components/ui/Button';
 import { Card } from '../../components/ui/Card';
 import { Skeleton } from '../../components/ui/Skeleton';
-import { useReleaseToPatient, useReportDetail, useReportFields } from '../../hooks/useReports';
-import { useVerifyField } from '../../hooks/useVerification';
+import { useOpenDoctorRawReport, useReportDetail } from '../../hooks/useReports';
+import { useEditField, useUnlockReport, useVerifyReport } from '../../hooks/useVerification';
 import { normalizeApiError } from '../../lib/apiError';
 import { sanitizeFilename } from '../../lib/sanitize';
 import type { ReportField } from '../../types/report';
 
 export default function ReportDetailPage() {
   const { reportId = '' } = useParams();
+  const [message, setMessage] = useState<string | null>(null);
+  const [editingFieldName, setEditingFieldName] = useState<string | null>(null);
   const report = useReportDetail(reportId);
-  const fields = useReportFields(reportId);
-  const verifyField = useVerifyField();
-  const release = useReleaseToPatient();
+  const rawReport = useOpenDoctorRawReport();
+  const verifyReport = useVerifyReport();
+  const unlockReport = useUnlockReport();
+  const editField = useEditField();
 
-  const handleVerifyField = (_reportId: string, field: ReportField) => {
-    verifyField.mutate({
-      reportId,
-      fieldName: field.field_name,
-      data: { verification_type: 'approved' },
-    });
+  const handleEditField = (_reportId: string, field: ReportField, value: string) => {
+    setMessage(null);
+    setEditingFieldName(field.field_name);
+    editField.mutate(
+      {
+        reportId,
+        fieldName: field.field_name,
+        data: {
+          edited_value: value,
+          edit_reason: 'Doctor corrected extracted value',
+        },
+      },
+      {
+        onSuccess: () => {
+          setMessage(`${field.field_name} updated. Verify the report when review is complete.`);
+        },
+        onError: (error) => {
+          setMessage(normalizeApiError(error).message);
+        },
+        onSettled: () => setEditingFieldName(null),
+      },
+    );
   };
 
   if (report.isError) {
     return <RetryPanel onRetry={() => void report.refetch()} message={normalizeApiError(report.error).message} />;
   }
 
-  const reportData = report.data;
-  const hasFinalField = (fields.data ?? []).some((field) => field.is_final);
+  const reportData = report.data?.report;
+  const fields = report.data?.fields ?? [];
+  const hasFinalField = fields.some((field) => field.is_final);
+  const abnormalFields = fields.filter((field) => field.is_abnormal);
+  const reportLocked = hasFinalField || reportData?.lifecycle_status === 'doctor_verified' || reportData?.lifecycle_status === 'fully_verified' || reportData?.lifecycle_status === 'verified' || reportData?.lifecycle_status === 'released';
 
   return (
     <div className="space-y-6">
@@ -49,25 +72,56 @@ export default function ReportDetailPage() {
                 <ReportStatusBadge status={reportData.lifecycle_status} />
                 <span>{reportData.inferred_document_type}</span>
                 <span>Uploaded {new Date(reportData.first_uploaded_at).toLocaleDateString()}</span>
+                <span>{fields.length} extracted fields</span>
               </div>
             </div>
-            <div className="flex gap-2">
-              {!hasFinalField ? (
-                <Button variant="secondary" disabled>
-                  Re-upload
-                </Button>
-              ) : null}
+            <div className="flex flex-wrap gap-2">
               <Button
-                loading={release.isPending}
-                disabled={reportData.released_to_patient}
-                onClick={() => release.mutate(reportData.report_id)}
+                variant="secondary"
+                loading={rawReport.isPending}
+                onClick={() => rawReport.mutate(reportData.report_id)}
               >
-                Release
+                Open Original File
               </Button>
+              {reportLocked ? (
+                <Button
+                  variant="secondary"
+                  loading={unlockReport.isPending}
+                  onClick={() => {
+                    setMessage(null);
+                    unlockReport.mutate(reportData.report_id, {
+                      onSuccess: () => setMessage('Report unlocked. You can edit fields and verify again.'),
+                      onError: (error) => setMessage(normalizeApiError(error).message),
+                    });
+                  }}
+                >
+                  Unlock Report
+                </Button>
+              ) : (
+                <Button
+                  loading={verifyReport.isPending}
+                  disabled={fields.length === 0}
+                  onClick={() => {
+                    setMessage(null);
+                    verifyReport.mutate(reportData.report_id, {
+                      onSuccess: (result) => setMessage(`Report verified. ${result.verified_fields} fields locked.`),
+                      onError: (error) => setMessage(normalizeApiError(error).message),
+                    });
+                  }}
+                >
+                  Verify Report
+                </Button>
+              )}
             </div>
           </div>
         )}
       </Card>
+
+      {message ? (
+        <div className="rounded-md border border-clinical-border bg-clinical-surface px-4 py-3 text-sm text-clinical-text-secondary" role="status">
+          {message}
+        </div>
+      ) : null}
 
       {reportData?.is_duplicate ? (
         <div
@@ -80,17 +134,41 @@ export default function ReportDetailPage() {
       ) : null}
 
       <div className="grid gap-6">
-        {fields.isError ? (
-          <RetryPanel onRetry={() => void fields.refetch()} message={normalizeApiError(fields.error).message} />
-        ) : (
-          <FieldsTable
-            fields={fields.data ?? []}
-            reportId={reportId}
-            role="doctor"
-            isLoading={fields.isLoading}
-            onVerifyField={handleVerifyField}
-          />
-        )}
+        <Card>
+          <h2 className="text-base font-semibold text-clinical-text-primary">Clinical Review Snapshot</h2>
+          <div className="mt-3 grid gap-3 text-sm md:grid-cols-3">
+            <div>
+              <p className="text-clinical-text-secondary">AI confidence average</p>
+              <p className="font-semibold">
+                {fields.length > 0
+                  ? `${Math.round((fields.reduce((sum, field) => sum + field.confidence, 0) / fields.length) * 100)}%`
+                  : '-'}
+              </p>
+            </div>
+            <div>
+              <p className="text-clinical-text-secondary">Abnormal fields</p>
+              <p className="font-semibold">{abnormalFields.length}</p>
+            </div>
+            <div>
+              <p className="text-clinical-text-secondary">Verification status</p>
+              <p className="font-semibold">{reportLocked ? 'Verified and locked' : 'Editable review'}</p>
+            </div>
+          </div>
+        </Card>
+
+        {rawReport.isError ? (
+          <RetryPanel onRetry={() => rawReport.reset()} message={normalizeApiError(rawReport.error).message} />
+        ) : null}
+
+        <FieldsTable
+          fields={fields}
+          reportId={reportId}
+          role="doctor"
+          isLoading={report.isLoading}
+          reportLocked={reportLocked}
+          editingFieldName={editingFieldName}
+          onEditField={handleEditField}
+        />
       </div>
     </div>
   );

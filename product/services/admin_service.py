@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from json import dumps
 from uuid import UUID
 
 from fastapi import HTTPException
@@ -125,7 +126,9 @@ def list_users(
         SELECT user_id, email, role, full_name, phone, age, gender,
                blood_group, allergies, chronic_conditions, address,
                emergency_contact, last_login, license_number,
-               specialization, patient_uid, date_of_birth, sex,
+               specialization, hospital_name, years_of_experience,
+               department, profile_photo, verification_status,
+               verification_rejection_reason, patient_uid, date_of_birth, sex,
                is_registered, is_active, created_at, updated_at
         FROM users
         WHERE (:role IS NULL OR role = :role)
@@ -350,7 +353,9 @@ def get_user(user_id: str | UUID, db: Session) -> dict:
             SELECT user_id, email, role, full_name, phone, age, gender,
                    blood_group, allergies, chronic_conditions, address,
                    emergency_contact, last_login, license_number,
-                   specialization, patient_uid, date_of_birth, sex,
+                   specialization, hospital_name, years_of_experience,
+                   department, profile_photo, verification_status,
+                   verification_rejection_reason, patient_uid, date_of_birth, sex,
                    is_registered, is_active, created_at, updated_at
             FROM users
             WHERE user_id = :user_id
@@ -379,7 +384,9 @@ def set_user_active(
             RETURNING user_id, email, role, full_name, phone, age, gender,
                       blood_group, allergies, chronic_conditions, address,
                       emergency_contact, last_login, license_number,
-                      specialization, patient_uid, date_of_birth, sex,
+                      specialization, hospital_name, years_of_experience,
+                      department, profile_photo, verification_status,
+                      verification_rejection_reason, patient_uid, date_of_birth, sex,
                       is_registered, is_active, created_at, updated_at
             """
         ),
@@ -404,6 +411,70 @@ def set_user_active(
             "action": action,
             "entity_id": str(user_id),
         },
+    )
+    db.commit()
+    return dict(row)
+
+
+def set_doctor_verification_status(
+    doctor_id: str | UUID,
+    verification_status: str,
+    admin_id: str | UUID,
+    db: Session,
+    reason: str | None = None,
+) -> dict:
+    if verification_status not in {"pending_verification", "approved", "rejected", "suspended"}:
+        raise HTTPException(status_code=400, detail="Invalid verification status")
+
+    row = db.execute(
+        text(
+            """
+            UPDATE users
+            SET verification_status = :verification_status,
+                verification_rejection_reason = :reason,
+                updated_at = NOW()
+            WHERE user_id = :doctor_id
+              AND role = 'doctor'
+            RETURNING user_id, email, role, full_name, phone, age, gender,
+                      blood_group, allergies, chronic_conditions, address,
+                      emergency_contact, last_login, license_number,
+                      specialization, hospital_name, years_of_experience,
+                      department, profile_photo, verification_status,
+                      verification_rejection_reason, patient_uid, date_of_birth, sex,
+                      is_registered, is_active, created_at, updated_at
+            """
+        ),
+        {
+            "doctor_id": doctor_id,
+            "verification_status": verification_status,
+            "reason": reason,
+        },
+    ).mappings().first()
+    if row is None:
+        raise HTTPException(status_code=404, detail="Doctor not found")
+
+    db.execute(
+        text(
+            """
+            INSERT INTO audit_log (user_id, user_role, action, entity_type, entity_id, metadata)
+            VALUES (:user_id, 'admin', :action, 'user', :entity_id, CAST(:metadata AS JSONB))
+            """
+        ),
+        {
+            "user_id": admin_id,
+            "action": f"DOCTOR_{verification_status.upper()}",
+            "entity_id": str(doctor_id),
+            "metadata": dumps({"verification_status": verification_status, "reason": reason}),
+        },
+    )
+    notification_service.create_notification(
+        row["user_id"],
+        admin_id,
+        "DOCTOR_VERIFICATION",
+        "Doctor verification updated",
+        f"Your doctor verification status is now {verification_status.replace('_', ' ')}.",
+        None,
+        db,
     )
     db.commit()
     return dict(row)

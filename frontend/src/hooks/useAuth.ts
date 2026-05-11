@@ -26,6 +26,11 @@ function normalizeSignupUser(response: BackendTokenResponse, data: SignupRequest
     patient_uid: data.claim_patient_uid ?? undefined,
     license_number: data.license_number ?? undefined,
     specialization: data.specialization ?? undefined,
+    hospital_name: data.hospital_name ?? undefined,
+    years_of_experience: data.years_of_experience ?? undefined,
+    department: data.department ?? undefined,
+    profile_photo: data.profile_photo ?? undefined,
+    verification_status: response.role === 'doctor' ? 'pending_verification' : 'approved',
   };
 }
 
@@ -40,6 +45,11 @@ function normalizeLoginUser(response: BackendTokenResponse, data: LoginRequest, 
     patient_uid: matchingUser?.patient_uid,
     license_number: matchingUser?.license_number,
     specialization: matchingUser?.specialization,
+    hospital_name: matchingUser?.hospital_name,
+    years_of_experience: matchingUser?.years_of_experience,
+    department: matchingUser?.department,
+    profile_photo: matchingUser?.profile_photo,
+    verification_status: matchingUser?.verification_status,
   };
 }
 

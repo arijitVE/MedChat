@@ -3,6 +3,7 @@ import { apiClient } from './client';
 import type {
   FieldVerifyRequest,
   Report,
+  ReportDetailResponse,
   ReportEdaResult,
   ReportField,
   UploadResponse,
@@ -18,24 +19,49 @@ type MyReportsParams = {
   lifecycle_status?: string;
   query?: string;
 };
+type DoctorReportsParams = {
+  lifecycle_status?: string;
+  patient_id?: string;
+  query?: string;
+};
 
 export const reportsApi = {
-  upload: (formData: FormData) =>
-    apiClient.post<Report>(
+  upload: (formData: FormData, force?: boolean) =>
+    apiClient.post<UploadResponse>(
       '/doctor/upload',
       formData,
-      { headers: { 'Content-Type': 'multipart/form-data' } },
+      { headers: { 'Content-Type': 'multipart/form-data' }, params: { force } },
     ),
-  doctorUpload: (formData: FormData) =>
-    apiClient.post<Report>(
+  doctorUpload: (formData: FormData, force?: boolean) =>
+    apiClient.post<UploadResponse>(
       '/doctor/upload',
       formData,
-      { headers: { 'Content-Type': 'multipart/form-data' } },
+      { headers: { 'Content-Type': 'multipart/form-data' }, params: { force } },
     ),
+  getDoctorReports: (params?: DoctorReportsParams) =>
+    apiClient.get<Report[]>('/doctor/reports/search', {
+      params: {
+        lifecycle_status: params?.lifecycle_status,
+        patient_id: params?.patient_id,
+        query: params?.query,
+      },
+    }),
+  fetchDoctorReports: (params?: DoctorReportsParams) =>
+    apiClient.get<Report[]>('/doctor/reports/search', {
+      params: {
+        lifecycle_status: params?.lifecycle_status,
+        patient_id: params?.patient_id,
+        query: params?.query,
+      },
+    }),
   getReport: (reportId: string) =>
-    apiClient.get<Report>(`/doctor/reports/${reportId}`),
+    apiClient.get<ReportDetailResponse>(`/doctor/reports/${reportId}`),
   fetchDoctorReport: (reportId: string) =>
-    apiClient.get<Report>(`/doctor/reports/${reportId}`),
+    apiClient.get<ReportDetailResponse>(`/doctor/reports/${reportId}`),
+  getDoctorRawReport: (reportId: string) =>
+    apiClient.get<Blob>(`/doctor/reports/${reportId}/raw-file`, {
+      responseType: 'blob',
+    }),
   getReportFields: (reportId: string) =>
     apiClient.get<ReportField[]>(`/doctor/reports/${reportId}/fields`),
   fetchDoctorFields: (reportId: string) =>

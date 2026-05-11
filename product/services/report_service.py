@@ -65,13 +65,20 @@ def ensure_doctor_patient_access(doctor_id: str | UUID, patient_id: str | UUID, 
         raise HTTPException(status_code=403, detail="Doctor does not have access to this patient")
 
 
+def _doctor_can_access_report(doctor_id: str | UUID, report, db: Session) -> bool:
+    return (
+        str(report["doctor_id"]) == str(doctor_id)
+        or str(report["uploaded_by"]) == str(doctor_id)
+        or verify_doctor_patient_access(doctor_id, report["patient_id"], db)
+    )
+
+
 def release_report_to_patient(
     report_id: str | UUID,
     doctor_id: str | UUID,
     db: Session,
 ) -> ReportStatusResponse:
     report = _get_report_row(report_id, db)
-    ensure_doctor_patient_access(doctor_id, report["patient_id"], db)
     if str(report["uploaded_by"]) != str(doctor_id):
         raise HTTPException(status_code=403, detail="Only the uploading doctor can release this report")
 
@@ -127,7 +134,8 @@ def get_report_for_doctor(
     db: Session,
 ) -> dict:
     report = _get_report_row(report_id, db)
-    ensure_doctor_patient_access(doctor_id, report["patient_id"], db)
+    if not _doctor_can_access_report(doctor_id, report, db):
+        raise HTTPException(status_code=403, detail="Doctor does not have access to this report")
     fields = verification_service.get_field_verification_status(
         str(report_id),
         db,
@@ -136,6 +144,65 @@ def get_report_for_doctor(
     return {
         "report": _report_response(report),
         "fields": fields,
+    }
+
+
+def search_reports_for_doctor(
+    doctor_id: str | UUID,
+    db: Session,
+    lifecycle_status: str | None = None,
+    patient_id: str | UUID | None = None,
+    query: str | None = None,
+) -> list[dict]:
+    sql = """
+        SELECT DISTINCT r.report_id, r.job_id, r.patient_id, r.uploaded_by, r.doctor_id,
+               r.file_path, r.file_name, r.file_mime, r.file_size_bytes,
+               r.upload_document_type, r.inferred_document_type,
+               r.lifecycle_status, r.released_to_patient, r.first_uploaded_at,
+               r.last_edited_at, r.upload_count, r.file_hash, r.is_duplicate,
+               r.duplicate_of
+        FROM reports r
+        LEFT JOIN doctor_patient_assignments a
+          ON a.patient_id = r.patient_id
+         AND a.doctor_id = :doctor_id
+         AND a.status = 'active'
+        WHERE (r.doctor_id = :doctor_id OR a.assignment_id IS NOT NULL)
+    """
+    params: dict[str, object] = {"doctor_id": doctor_id}
+    if lifecycle_status is not None:
+        sql += " AND r.lifecycle_status = :lifecycle_status"
+        params["lifecycle_status"] = lifecycle_status
+    if patient_id is not None:
+        sql += " AND r.patient_id = :patient_id"
+        params["patient_id"] = patient_id
+    if query is not None:
+        sql += """
+            AND (
+                r.file_name ILIKE :query
+                OR r.inferred_document_type ILIKE :query
+                OR r.upload_document_type ILIKE :query
+            )
+        """
+        params["query"] = f"%{query}%"
+    sql += " ORDER BY r.first_uploaded_at DESC"
+    rows = db.execute(text(sql), params).mappings().all()
+    return [dict(row) for row in rows]
+
+
+def get_raw_report_file_for_doctor(
+    report_id: str | UUID,
+    doctor_id: str | UUID,
+    db: Session,
+) -> dict:
+    report = _get_report_row(report_id, db)
+    if not _doctor_can_access_report(doctor_id, report, db):
+        raise HTTPException(status_code=403, detail="Doctor does not have access to this report")
+    _write_audit(db, doctor_id, "doctor", "VIEW_RAW_REPORT", report_id)
+    db.commit()
+    return {
+        "path": report["file_path"],
+        "filename": report["file_name"],
+        "media_type": report["file_mime"],
     }
 
 
@@ -176,10 +243,46 @@ def get_patient_sql_analytics(
         ),
         {"patient_id": str(patient_id)},
     ).mappings().all()
+    fields = [dict(row) for row in rows]
+    normal_fields = [
+        {
+            "field_id": field["field_name"],
+            "job_id": "",
+            "patient_id": str(patient_id),
+            "name": field["field_name"],
+            "raw_name": field["field_name"],
+            "value": str(round(float(field["mean"]), 2)) if field["mean"] is not None else "",
+            "numeric_value": float(field["mean"]) if field["mean"] is not None else None,
+            "unit": None,
+            "reference_range": None,
+            "ref_low": None,
+            "ref_high": None,
+            "confidence": 1.0,
+            "status": "aggregate",
+            "is_abnormal": None,
+        }
+        for field in fields
+    ]
     return {
         "patient_id": str(patient_id),
         "analytics_engine": "sql",
-        "fields": [dict(row) for row in rows],
+        "fields": fields,
+        "abnormal_fields": [],
+        "normal_fields": normal_fields,
+        "abnormal_count": 0,
+        "normal_count": len(normal_fields),
+        "chart_json": {
+            "type": "bar_chart",
+            "data": {
+                "fields": [field["field_name"] for field in fields],
+                "values": [float(field["mean"]) if field["mean"] is not None else 0 for field in fields],
+                "ref_low": [None for _ in fields],
+                "ref_high": [None for _ in fields],
+            },
+            "meta": {"patient_id": str(patient_id), "date": "aggregate"},
+        },
+        "ai_insight": "SQL aggregate analytics are shown from verified report fields.",
+        "cached": False,
     }
 
 

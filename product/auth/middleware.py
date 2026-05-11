@@ -24,6 +24,7 @@ def fetch_user_by_id(user_id: str, db: Session) -> UserProfile | None:
             SELECT user_id, email, role, full_name, phone, age, gender,
                    blood_group, allergies, chronic_conditions, address,
                    emergency_contact, last_login, is_registered, is_active,
+                   verification_status, verification_rejection_reason,
                    created_at, updated_at
             FROM users
             WHERE user_id = :user_id

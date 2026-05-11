@@ -3,13 +3,19 @@ import { verificationApi } from '../api/verification';
 import { normalizeApiError } from '../lib/apiError';
 import { queryKeys } from '../lib/queryKeys';
 import type { ApiError } from '../lib/apiError';
-import type { FieldVerifyRequest, ReportField } from '../types/report';
+import type { FieldEditRequest, FieldVerifyRequest, ReportField, ReportVerificationResponse } from '../types/report';
 import type { FieldVerification } from '../types/verification';
 
 type VerifyVariables = {
   reportId: string;
   fieldName: string;
   data: FieldVerifyRequest;
+};
+
+type EditFieldVariables = {
+  reportId: string;
+  fieldName: string;
+  data: FieldEditRequest;
 };
 
 type VerificationContext = {
@@ -63,6 +69,66 @@ export function useVerifyField() {
     onSettled: (_data, _error, variables) => {
       queryClient.invalidateQueries({ queryKey: queryKeys.reports.fields(variables.reportId) });
       queryClient.invalidateQueries({ queryKey: queryKeys.reports.detail(variables.reportId) });
+    },
+  });
+}
+
+export function useVerifyReport() {
+  const queryClient = useQueryClient();
+
+  return useMutation<ReportVerificationResponse, ApiError, string>({
+    mutationFn: async (reportId) => {
+      try {
+        const response = await verificationApi.verifyReport(reportId);
+        return response.data;
+      } catch (error) {
+        throw normalizeApiError(error);
+      }
+    },
+    onSuccess: (_data, reportId) => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.reports.detail(reportId) });
+      queryClient.invalidateQueries({ queryKey: queryKeys.reports.fields(reportId) });
+      queryClient.invalidateQueries({ queryKey: queryKeys.reports.all });
+    },
+  });
+}
+
+export function useUnlockReport() {
+  const queryClient = useQueryClient();
+
+  return useMutation<ReportVerificationResponse, ApiError, string>({
+    mutationFn: async (reportId) => {
+      try {
+        const response = await verificationApi.unlockReport(reportId);
+        return response.data;
+      } catch (error) {
+        throw normalizeApiError(error);
+      }
+    },
+    onSuccess: (_data, reportId) => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.reports.detail(reportId) });
+      queryClient.invalidateQueries({ queryKey: queryKeys.reports.fields(reportId) });
+      queryClient.invalidateQueries({ queryKey: queryKeys.reports.all });
+    },
+  });
+}
+
+export function useEditField() {
+  const queryClient = useQueryClient();
+
+  return useMutation<FieldVerification, ApiError, EditFieldVariables>({
+    mutationFn: async ({ reportId, fieldName, data }) => {
+      try {
+        const response = await verificationApi.editField(reportId, fieldName, data);
+        return response.data;
+      } catch (error) {
+        throw normalizeApiError(error);
+      }
+    },
+    onSuccess: (_data, variables) => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.reports.detail(variables.reportId) });
+      queryClient.invalidateQueries({ queryKey: queryKeys.reports.fields(variables.reportId) });
+      queryClient.invalidateQueries({ queryKey: queryKeys.reports.all });
     },
   });
 }

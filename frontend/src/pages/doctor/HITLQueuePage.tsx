@@ -1,6 +1,19 @@
+import { useNavigate } from 'react-router-dom';
+import { RetryPanel } from '../../components/feedback/RetryPanel';
+import { ReportCard } from '../../components/report/ReportCard';
 import { EmptyState } from '../../components/ui/EmptyState';
+import { Skeleton } from '../../components/ui/Skeleton';
+import { useDoctorReports } from '../../hooks/useReports';
+import { normalizeApiError } from '../../lib/apiError';
 
 export default function HITLQueuePage() {
+  const navigate = useNavigate();
+  const reports = useDoctorReports({ lifecycle_status: 'hitl_required' });
+
+  if (reports.isError) {
+    return <RetryPanel onRetry={() => void reports.refetch()} message={normalizeApiError(reports.error).message} />;
+  }
+
   return (
     <div className="space-y-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
@@ -10,8 +23,21 @@ export default function HITLQueuePage() {
         </div>
       </div>
 
-      {/* TODO: restore queue data when the backend exposes a doctor HITL queue route. */}
-      <EmptyState title="The current backend routes do not expose a doctor HITL queue" />
+      {reports.isLoading ? (
+        <Skeleton variant="card" rows={5} />
+      ) : (reports.data ?? []).length === 0 ? (
+        <EmptyState title="No reports currently need HITL review" />
+      ) : (
+        <div className="grid gap-4">
+          {(reports.data ?? []).map((report) => (
+            <ReportCard
+              key={report.report_id}
+              report={report}
+              onSelect={() => navigate(`/doctor/reports/${report.report_id}`)}
+            />
+          ))}
+        </div>
+      )}
     </div>
   );
 }

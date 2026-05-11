@@ -115,6 +115,58 @@ def detect_document_type(file_name: str) -> DocumentType:
     return DocumentType.unknown
 
 
+def detect_document_type_from_text(text: str) -> DocumentType:
+    """Infer medical document category from OCR text when filename is not enough."""
+    if not text:
+        return DocumentType.unknown
+
+    text_lower = text.lower()
+    radiology_hits = sum(
+        keyword in text_lower
+        for keyword in ("radiology", "x-ray", "xray", "mri", "ct scan", "ultrasound", "impression", "findings")
+    )
+    discharge_hits = sum(
+        keyword in text_lower
+        for keyword in ("discharge summary", "admission", "discharge", "diagnosis", "treatment given")
+    )
+    prescription_hits = sum(
+        keyword in text_lower
+        for keyword in ("prescription", "rx", "tablet", "capsule", "tab.", "cap.", "dosage", "twice daily")
+    )
+    lab_hits = sum(
+        keyword in text_lower
+        for keyword in (
+            "hemoglobin",
+            "hb",
+            "glucose",
+            "cholesterol",
+            "platelet",
+            "leucocyte",
+            "leukocyte",
+            "erythrocyte",
+            "neutrophil",
+            "lymphocyte",
+            "monocyte",
+            "eosinophil",
+            "basophil",
+            "reference range",
+            "mg/dl",
+            "g/dl",
+            "cbc",
+            "complete blood count",
+        )
+    )
+
+    scores = [
+        (lab_hits, DocumentType.lab_report),
+        (prescription_hits, DocumentType.prescription),
+        (radiology_hits, DocumentType.radiology),
+        (discharge_hits, DocumentType.discharge_summary),
+    ]
+    score, document_type = max(scores, key=lambda item: item[0])
+    return document_type if score >= 2 else DocumentType.unknown
+
+
 def ingest(
     file_bytes: bytes,
     file_name: str,

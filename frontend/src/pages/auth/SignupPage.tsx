@@ -35,6 +35,10 @@ const signupFields = [
   'gender',
   'license_number',
   'specialization',
+  'hospital_name',
+  'years_of_experience',
+  'department',
+  'profile_photo',
   'date_of_birth',
   'sex',
   'blood_group',
@@ -78,6 +82,11 @@ function calculateAge(dateOfBirth: string | undefined): number | null {
   return age >= 0 ? age : null;
 }
 
+function parseOptionalNumber(value: string | undefined): number | null {
+  const trimmed = value?.trim() ?? '';
+  return trimmed ? Number(trimmed) : null;
+}
+
 function normalizeSignupPayload(values: SignupFormValues): SignupRequest {
   const phoneValue = trimToNull(values.phone_number) ?? trimToNull(values.phone);
   const basePayload = {
@@ -94,6 +103,10 @@ function normalizeSignupPayload(values: SignupFormValues): SignupRequest {
       ...basePayload,
       license_number: trimToNull(values.license_number),
       specialization: values.specialization,
+      hospital_name: trimToNull(values.hospital_name),
+      years_of_experience: parseOptionalNumber(values.years_of_experience),
+      department: trimToNull(values.department),
+      profile_photo: trimToNull(values.profile_photo),
       date_of_birth: null,
       sex: null,
       claim_patient_uid: null,
@@ -125,6 +138,13 @@ function getSignupErrorMessage(error: unknown): string {
   }
 
   return apiError.message;
+}
+
+function getPostSignupPath(role: string, verificationStatus?: string | null): string {
+  if (role === 'doctor' && verificationStatus !== 'approved') {
+    return '/doctor/verification-pending';
+  }
+  return `/${role}`;
 }
 
 function getFieldErrors(values: SignupFormValues): SignupFieldErrors {
@@ -165,6 +185,10 @@ export default function SignupPage() {
       gender: '',
       license_number: '',
       specialization: defaultDoctorSpecialization,
+      hospital_name: '',
+      years_of_experience: '',
+      department: '',
+      profile_photo: '',
       date_of_birth: '',
       sex: '',
       blood_group: '',
@@ -193,7 +217,7 @@ export default function SignupPage() {
 
     try {
       const response = await signup.mutateAsync(normalizeSignupPayload(values));
-      navigate(`/${response.user.role}`);
+      navigate(getPostSignupPath(response.user.role, response.user.verification_status));
     } catch (error) {
       setFormError(getSignupErrorMessage(error));
     }
@@ -348,6 +372,50 @@ export default function SignupPage() {
                     </option>
                   ))}
                 </select>
+              </div>
+
+              <div>
+                <label htmlFor="hospital_name" className="block text-sm font-medium text-clinical-text-primary">
+                  Hospital
+                </label>
+                <input
+                  id="hospital_name"
+                  type="text"
+                  className="mt-1 block w-full rounded-md border border-clinical-border bg-clinical-surface px-3 py-2 text-sm text-clinical-text-primary outline-none focus:border-clinical-primary focus:ring-2 focus:ring-clinical-primary-light"
+                  {...register('hospital_name')}
+                />
+              </div>
+
+              <div>
+                <label htmlFor="department" className="block text-sm font-medium text-clinical-text-primary">
+                  Department
+                </label>
+                <input
+                  id="department"
+                  type="text"
+                  className="mt-1 block w-full rounded-md border border-clinical-border bg-clinical-surface px-3 py-2 text-sm text-clinical-text-primary outline-none focus:border-clinical-primary focus:ring-2 focus:ring-clinical-primary-light"
+                  {...register('department')}
+                />
+              </div>
+
+              <div className="sm:col-span-2">
+                <label htmlFor="years_of_experience" className="block text-sm font-medium text-clinical-text-primary">
+                  Years of experience
+                </label>
+                <input
+                  id="years_of_experience"
+                  type="number"
+                  min="0"
+                  className="mt-1 block w-full rounded-md border border-clinical-border bg-clinical-surface px-3 py-2 text-sm text-clinical-text-primary outline-none focus:border-clinical-primary focus:ring-2 focus:ring-clinical-primary-light"
+                  aria-invalid={fieldErrors.years_of_experience ? true : undefined}
+                  aria-describedby={fieldErrors.years_of_experience ? 'years-error' : undefined}
+                  {...register('years_of_experience')}
+                />
+                {fieldErrors.years_of_experience ? (
+                  <p id="years-error" className="mt-1 text-sm text-clinical-critical">
+                    {fieldErrors.years_of_experience}
+                  </p>
+                ) : null}
               </div>
             </>
           ) : (

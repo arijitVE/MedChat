@@ -137,6 +137,14 @@ def _activate_existing_patient(db: Session, user_id: UUID, body: SignupRequest) 
 
 
 def signup(body: SignupRequest, db: Session) -> TokenResponse:
+    if body.role == "doctor":
+        if not body.license_number:
+            raise HTTPException(status_code=400, detail="License number is required")
+        if not body.specialization:
+            raise HTTPException(status_code=400, detail="Specialization is required")
+        if not _phone_value(body):
+            raise HTTPException(status_code=400, detail="Phone number is required")
+
     if body.claim_patient_uid:
         row = db.execute(
             text(
@@ -163,18 +171,23 @@ def signup(body: SignupRequest, db: Session) -> TokenResponse:
         raise HTTPException(status_code=409, detail="Email already registered")
 
     patient_uid = _generate_patient_uid(db) if body.role == "patient" else None
+    verification_status = "pending_verification" if body.role == "doctor" else "approved"
     row = db.execute(
         text(
             """
             INSERT INTO users (
                 email, password_hash, role, full_name, phone, license_number,
-                specialization, patient_uid, age, gender, date_of_birth, sex,
+                specialization, hospital_name, years_of_experience, department,
+                profile_photo, verification_status,
+                patient_uid, age, gender, date_of_birth, sex,
                 blood_group, allergies, chronic_conditions, address, emergency_contact,
                 is_registered, is_active
             )
             VALUES (
                 :email, :password_hash, :role, :full_name, :phone, :license_number,
-                :specialization, :patient_uid, :age, :gender, :date_of_birth, :sex,
+                :specialization, :hospital_name, :years_of_experience, :department,
+                :profile_photo, :verification_status,
+                :patient_uid, :age, :gender, :date_of_birth, :sex,
                 :blood_group, :allergies, :chronic_conditions, :address, :emergency_contact,
                 TRUE, TRUE
             )
@@ -189,6 +202,11 @@ def signup(body: SignupRequest, db: Session) -> TokenResponse:
             "phone": _phone_value(body),
             "license_number": body.license_number,
             "specialization": body.specialization,
+            "hospital_name": body.hospital_name,
+            "years_of_experience": body.years_of_experience,
+            "department": body.department,
+            "profile_photo": body.profile_photo,
+            "verification_status": verification_status,
             "patient_uid": patient_uid,
             "age": body.age,
             "gender": _gender_value(body),

@@ -27,7 +27,11 @@ export function Topbar() {
     }
   };
 
-  const accountPath = user?.role === 'patient' ? '/patient/account' : `/${user?.role ?? 'login'}`;
+  const accountPath = user?.role === 'patient'
+    ? '/patient/account'
+    : user?.role === 'doctor'
+      ? '/doctor/account'
+      : `/${user?.role ?? 'login'}`;
 
   return (
     <header className="flex h-14 items-center justify-between border-b border-clinical-border bg-clinical-surface px-4">

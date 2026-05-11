@@ -80,4 +80,10 @@ export const adminApi = {
     apiClient.put<UserListItem>(`/admin/users/${userId}/deactivate`),
   activateUser: (userId: string) =>
     apiClient.put<UserListItem>(`/admin/users/${userId}/activate`),
+  approveDoctor: (doctorId: string) =>
+    apiClient.put<UserListItem>(`/admin/doctors/${doctorId}/approve`),
+  rejectDoctor: (doctorId: string, reason?: string) =>
+    apiClient.put<UserListItem>(`/admin/doctors/${doctorId}/reject`, { reason }),
+  suspendDoctor: (doctorId: string, reason?: string) =>
+    apiClient.put<UserListItem>(`/admin/doctors/${doctorId}/suspend`, { reason }),
 };

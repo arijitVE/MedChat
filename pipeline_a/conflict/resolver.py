@@ -36,7 +36,7 @@ def resolve(
         hitl_reasons.append(f"{hitl_field_count} fields have LOW_CONFIDENCE status.")
         
     # Trigger 2: ocr_result.low_confidence == True
-    if ocr.low_confidence:
+    if ocr.low_confidence and len(scored_fields) == 0:
         hitl_reasons.append(f"Document-level OCR confidence is below threshold ({ocr.avg_confidence:.4f}).")
         
     # Trigger 3: len(scored_fields) == 0

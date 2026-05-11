@@ -32,9 +32,14 @@ const linksByRole: Record<User['role'], SidebarLink[]> = {
   doctor: [
     { to: '/doctor', label: 'Dashboard', icon: Home },
     { to: '/doctor/patients', label: 'Patients', icon: Users },
+    { to: '/doctor/reports', label: 'Reports', icon: FileText },
     { to: '/doctor/upload', label: 'Upload', icon: Upload },
     { to: '/doctor/hitl', label: 'HITL Queue', icon: ClipboardList },
-    { to: '/doctor/chat', label: 'Chat', icon: MessageSquare },
+    { to: '/doctor/analytics', label: 'Analytics', icon: BarChart3 },
+    { to: '/doctor/chat', label: 'Chat Assistant', icon: MessageSquare },
+    { to: '/doctor/notifications', label: 'Notifications', icon: Bell },
+    { to: '/doctor/account', label: 'Account/Profile', icon: UserIcon },
+    { to: '/doctor/logout', label: 'Logout', icon: LogOut },
   ],
   patient: [
     { to: '/patient', label: 'Dashboard', icon: Home },

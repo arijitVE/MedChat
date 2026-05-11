@@ -207,7 +207,7 @@ def _resolve_doctor_upload_patient(
     row = db.execute(
         text(
             """
-            SELECT user_id, patient_uid
+            SELECT user_id, patient_uid, is_registered
             FROM users
             WHERE email = :email
               AND role = 'patient'
@@ -216,6 +216,8 @@ def _resolve_doctor_upload_patient(
         {"email": patient_email},
     ).mappings().first()
     if row is not None:
+        if row["is_registered"]:
+            raise HTTPException(status_code=409, detail="Email already registered. Use Patient-ID instead.")
         return row["user_id"], row["patient_uid"]
 
     generated_uid = _generate_patient_uid(db)
@@ -240,6 +242,22 @@ def _resolve_doctor_upload_patient(
         },
     ).mappings().one()
     return created["user_id"], created["patient_uid"]
+
+
+def _ensure_doctor_upload_assignment(db: Session, doctor_id, patient_id) -> None:
+    db.execute(
+        text(
+            """
+            INSERT INTO doctor_patient_assignments (
+                doctor_id, patient_id, assigned_by, status
+            )
+            VALUES (:doctor_id, :patient_id, 'doctor', 'active')
+            ON CONFLICT (doctor_id, patient_id)
+            DO UPDATE SET status = 'active', updated_at = NOW()
+            """
+        ),
+        {"doctor_id": doctor_id, "patient_id": patient_id},
+    )
 
 
 def _find_exact_duplicate(
@@ -610,6 +628,7 @@ def run_pipeline_a_task(
     file_bytes_hex: str,
     document_type: str,
     db_url: str,
+    file_name: str = "",
     raise_on_error: bool = False,
 ) -> None:
     """Runs in background thread after upload response is returned.
@@ -659,6 +678,7 @@ def run_pipeline_a_task(
             file_bytes_hex=file_bytes_hex,
             document_type=document_type,
             db=db,
+            file_name=file_name,
         )
         upsert_job(
             db,
@@ -727,6 +747,7 @@ async def upload_report(
     resolved_patient_uid = None
     if uploader_role == "doctor":
         patient_id, resolved_patient_uid = _resolve_doctor_upload_patient(db, patient_uid, patient_email)
+        _ensure_doctor_upload_assignment(db, uploaded_by, patient_id)
     elif patient_id is None:
         patient_id = uploaded_by
 
@@ -870,6 +891,7 @@ async def upload_report(
             file_bytes_hex=file_bytes.hex(),
             document_type=pipeline_document_type,
             db_url=settings.DATABASE_URL,
+            file_name=file.filename or original_name,
         )
 
     response = {
@@ -904,7 +926,12 @@ async def reupload_report(
     ).mappings().first()
     if report is None:
         raise HTTPException(status_code=404, detail="Report not found")
-    if uploader_role == "doctor" and not verify_doctor_patient_access(uploaded_by, report["patient_id"], db):
+    if (
+        uploader_role == "doctor"
+        and str(report["doctor_id"]) != str(uploaded_by)
+        and str(report["uploaded_by"]) != str(uploaded_by)
+        and not verify_doctor_patient_access(uploaded_by, report["patient_id"], db)
+    ):
         raise HTTPException(status_code=403, detail="Doctor does not have access to this patient")
     if uploader_role == "patient" and str(uploaded_by) != str(report["patient_id"]):
         raise HTTPException(status_code=403, detail="Patient does not own this report")
@@ -1059,6 +1086,7 @@ async def reupload_report(
             file_bytes_hex=file_bytes.hex(),
             document_type=pipeline_document_type,
             db_url=settings.DATABASE_URL,
+            file_name=file.filename or original_name,
         )
     response = {"report_id": str(report_id), "status": "processing"}
     if metadata_duplicate is not None:
