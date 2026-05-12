@@ -40,6 +40,10 @@ export const intelligenceApi = {
       params: { field_name: fieldName },
       signal: options?.signal,
     }),
+  getMyAnalytics: (options?: RequestOptions) =>
+    apiClient.get<AnalyticsResult>('/patient/analytics', {
+      signal: options?.signal,
+    }),
   fetchMyTrend: (fieldName: string, options?: RequestOptions) =>
     apiClient.get<TrendResult>('/patient/trends', {
       params: { field_name: fieldName },

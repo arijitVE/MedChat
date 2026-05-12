@@ -52,6 +52,21 @@ export function useAnalytics(patientId: string) {
   });
 }
 
+export function useMyAnalytics() {
+  return useQuery({
+    queryKey: queryKeys.patients.analytics('me'),
+    queryFn: async ({ signal }) => {
+      try {
+        const response = await intelligenceApi.getMyAnalytics({ signal });
+        return response.data;
+      } catch (error) {
+        throw normalizeApiError(error);
+      }
+    },
+    staleTime: staleTime.analytics,
+  });
+}
+
 export function useMyTrends(fieldName: string) {
   return useQuery({
     queryKey: queryKeys.patients.trend('me', fieldName),

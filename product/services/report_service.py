@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import datetime as dt
+import re
 from uuid import UUID
 
 from fastapi import HTTPException
@@ -98,6 +99,35 @@ def _format_clinical_date(value: dt.date | None) -> str:
     return value.strftime("%d/%m/%Y") if value else ""
 
 
+def _name_token(value: str | None, fallback: str) -> str:
+    raw = (value or fallback).strip()
+    token = re.sub(r"[^A-Za-z0-9-]+", "_", raw).strip("_")
+    return token or fallback
+
+
+def _document_type_token(inferred_document_type: str | None, upload_document_type: str | None) -> str:
+    raw_type = inferred_document_type if inferred_document_type and inferred_document_type != "unknown" else upload_document_type
+    token = _name_token(raw_type, "Medical")
+    words = [word for word in token.split("_") if word]
+    title_words = [word[:1].upper() + word[1:].lower() for word in words]
+    if not title_words:
+        title_words = ["Medical"]
+    if "report" not in {word.lower() for word in title_words}:
+        title_words.append("Report")
+    return "_".join(title_words)
+
+
+def _with_display_report_name(row: dict) -> dict:
+    patient_name = row.get("patient_name") or "Patient"
+    patient_uid = row.get("patient_uid") or str(row.get("patient_id") or "Unknown")
+    row["display_report_name"] = (
+        f"{_name_token(patient_name, 'Patient')}_"
+        f"{_document_type_token(row.get('inferred_document_type'), row.get('upload_document_type'))}_"
+        f"{_name_token(patient_uid, 'PatientID')}"
+    )
+    return row
+
+
 def _get_report_row(report_id: str | UUID, db: Session):
     row = db.execute(
         text(
@@ -107,8 +137,11 @@ def _get_report_row(report_id: str | UUID, db: Session):
                    upload_document_type, inferred_document_type,
                    lifecycle_status, released_to_patient, first_uploaded_at,
                    last_edited_at, upload_count, file_hash, is_duplicate,
-                   duplicate_of
-            FROM reports
+                   duplicate_of,
+                   u.full_name AS patient_name,
+                   u.patient_uid AS patient_uid
+            FROM reports r
+            LEFT JOIN users u ON u.user_id = r.patient_id
             WHERE report_id = :report_id
             """
         ),
@@ -116,11 +149,11 @@ def _get_report_row(report_id: str | UUID, db: Session):
     ).mappings().first()
     if row is None:
         raise HTTPException(status_code=404, detail="Report not found")
-    return row
+    return _with_display_report_name(dict(row))
 
 
 def _report_response(row) -> ReportStatusResponse:
-    return ReportStatusResponse(**row)
+    return ReportStatusResponse(**_with_display_report_name(dict(row)))
 
 
 def _write_audit(
@@ -247,8 +280,11 @@ def search_reports_for_doctor(
                r.upload_document_type, r.inferred_document_type,
                r.lifecycle_status, r.released_to_patient, r.first_uploaded_at,
                r.last_edited_at, r.upload_count, r.file_hash, r.is_duplicate,
-               r.duplicate_of
+               r.duplicate_of,
+               u.full_name AS patient_name,
+               u.patient_uid AS patient_uid
         FROM reports r
+        LEFT JOIN users u ON u.user_id = r.patient_id
         LEFT JOIN doctor_patient_assignments a
           ON a.patient_id = r.patient_id
          AND a.doctor_id = :doctor_id
@@ -273,7 +309,7 @@ def search_reports_for_doctor(
         params["query"] = f"%{query}%"
     sql += " ORDER BY r.first_uploaded_at DESC"
     rows = db.execute(text(sql), params).mappings().all()
-    return [dict(row) for row in rows]
+    return [_with_display_report_name(dict(row)) for row in rows]
 
 
 def get_raw_report_file_for_doctor(
@@ -296,12 +332,15 @@ def get_raw_report_file_for_doctor(
 def get_patient_sql_analytics(
     patient_id: str | UUID,
     db: Session,
+    *,
+    patient_visible_only: bool = False,
 ) -> dict:
     # ANALYTICS: SQL engine only — never LLM-generated numbers.
     # Values are sourced from structured report_fields joined to patient reports.
+    visibility_clause = "AND r.released_to_patient = TRUE" if patient_visible_only else ""
     rows = db.execute(
         text(
-            """
+            f"""
             WITH ranked AS (
                 SELECT r.patient_id,
                        rf.job_id,
@@ -348,6 +387,7 @@ def get_patient_sql_analytics(
                       END
                   ) IS NOT NULL
                   AND r.lifecycle_status != 'failed'
+                  {visibility_clause}
             )
             SELECT patient_id, job_id, name, value, numeric_value, unit,
                    reference_range, collection_date, confidence, status,

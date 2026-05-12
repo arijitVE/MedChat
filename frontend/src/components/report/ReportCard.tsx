@@ -1,6 +1,6 @@
 import { FileText } from 'lucide-react';
 import { Card } from '../ui/Card';
-import { sanitizeFilename } from '../../lib/sanitize';
+import { getReportDisplayName } from '../../lib/reportName';
 import type { Report } from '../../types/report';
 import { ReportStatusBadge } from './ReportStatusBadge';
 
@@ -20,7 +20,7 @@ export function ReportCard({ report, onSelect, className = '' }: ReportCardProps
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0">
             <h3 className="truncate text-sm font-semibold text-clinical-text-primary">
-              {sanitizeFilename(report.file_name)}
+              {getReportDisplayName(report)}
             </h3>
             <p className="mt-1 text-xs text-clinical-text-secondary">
               {report.inferred_document_type === 'unknown'

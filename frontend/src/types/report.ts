@@ -18,6 +18,9 @@ export interface Report {
   patient_id: string;
   uploaded_by: string;
   file_name: string;
+  display_report_name?: string | null;
+  patient_name?: string | null;
+  patient_uid?: string | null;
   file_mime: string;
   upload_document_type: string;
   inferred_document_type: string;

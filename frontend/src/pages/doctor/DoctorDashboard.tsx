@@ -8,6 +8,7 @@ import { useAuth } from '../../hooks/useAuth';
 import { useNotifications } from '../../hooks/useNotifications';
 import { useDoctorReports } from '../../hooks/useReports';
 import { normalizeApiError } from '../../lib/apiError';
+import { getReportDisplayName } from '../../lib/reportName';
 
 export default function DoctorDashboard() {
   const { user } = useAuth();
@@ -98,7 +99,7 @@ export default function DoctorDashboard() {
                 to={`/doctor/reports/${report.report_id}`}
                 className="block rounded-md border border-clinical-border px-3 py-2 text-sm hover:bg-slate-50"
               >
-                <span className="font-medium text-clinical-text-primary">{report.file_name}</span>
+                <span className="font-medium text-clinical-text-primary">{getReportDisplayName(report)}</span>
                 <span className="ml-3 text-clinical-text-secondary">{report.lifecycle_status.replaceAll('_', ' ')}</span>
               </Link>
             ))}

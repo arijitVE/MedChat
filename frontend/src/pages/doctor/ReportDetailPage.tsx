@@ -10,7 +10,7 @@ import { Skeleton } from '../../components/ui/Skeleton';
 import { useOpenDoctorRawReport, useReportDetail } from '../../hooks/useReports';
 import { useEditField, useUnlockReport, useVerifyReport } from '../../hooks/useVerification';
 import { normalizeApiError } from '../../lib/apiError';
-import { sanitizeFilename } from '../../lib/sanitize';
+import { getReportDisplayName } from '../../lib/reportName';
 import type { ReportField } from '../../types/report';
 
 export default function ReportDetailPage() {
@@ -66,7 +66,7 @@ export default function ReportDetailPage() {
           <div className="flex flex-wrap items-start justify-between gap-4">
             <div>
               <h1 className="text-lg font-semibold text-clinical-text-primary">
-                {sanitizeFilename(reportData.file_name)}
+                {getReportDisplayName(reportData)}
               </h1>
               <div className="mt-2 flex flex-wrap items-center gap-3 text-sm text-clinical-text-secondary">
                 <ReportStatusBadge status={reportData.lifecycle_status} />

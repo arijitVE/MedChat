@@ -304,6 +304,11 @@ def patient_chat(
         confidence=1.0,
         classification_method="rule",
     )
+    if body.context_mode == "report":
+        if body.report_id is None:
+            raise HTTPException(status_code=400, detail="report_id is required for report-specific chat")
+        report_detail = report_service.get_report_for_patient(body.report_id, current_user.user_id, db)
+        classified.filters = {"job_ids": [str(report_detail["report"].job_id)]}
     return patient_service.handle_patient_query(classified, str(current_user.user_id), db)
 
 
@@ -322,6 +327,18 @@ def patient_trend(
         classification_method="rule",
     )
     return trend_service.handle_trend_query(classified, str(current_user.user_id), db)
+
+
+@router.get("/analytics")
+def patient_analytics(
+    current_user: UserProfile = Depends(require_role("patient")),
+    db: Session = Depends(get_db),
+):
+    return report_service.get_patient_sql_analytics(
+        current_user.user_id,
+        db,
+        patient_visible_only=True,
+    )
 
 
 @router.get("/notifications", response_model=NotificationList)

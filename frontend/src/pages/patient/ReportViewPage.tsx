@@ -9,7 +9,7 @@ import { RetryPanel } from '../../components/feedback/RetryPanel';
 import { useMyReport } from '../../hooks/useReports';
 import { useMyEDA } from '../../hooks/useIntelligence';
 import { normalizeApiError } from '../../lib/apiError';
-import { sanitizeFilename } from '../../lib/sanitize';
+import { getReportDisplayName } from '../../lib/reportName';
 import type { Report, ReportField } from '../../types/report';
 
 type PatientReportDetail = {
@@ -94,7 +94,7 @@ export default function ReportViewPage() {
         ) : (
           <div>
             <h1 className="text-lg font-semibold text-clinical-text-primary">
-              {sanitizeFilename(reportData.file_name)}
+              {getReportDisplayName(reportData)}
             </h1>
             <div className="mt-2 flex flex-wrap items-center gap-3 text-sm text-clinical-text-secondary">
               <ReportStatusBadge status={reportData.lifecycle_status} />

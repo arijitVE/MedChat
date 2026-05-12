@@ -1,8 +1,10 @@
 import time
+import json
 
 from pipeline_b.adapters.pipeline_a_adapter import get_all_records_for_patient
 from pipeline_b.cache.response_cache import get_cached, make_cache_key, set_cache
 from pipeline_b.engines.generator import generate_patient_explanation
+from pipeline_b.schemas.input import PatientRecord
 from pipeline_b.schemas.output import PatientChatResult
 from pipeline_b.schemas.query import ClassifiedQuery
 from shared.logger import get_logger
@@ -35,6 +37,18 @@ DISCLAIMER = (
 )
 
 
+def _filter_records(records: list[PatientRecord], filters: dict | None) -> list[PatientRecord]:
+    if not filters:
+        return records
+
+    job_ids = filters.get("job_ids")
+    if isinstance(job_ids, list):
+        allowed_job_ids = {str(job_id) for job_id in job_ids}
+        return [record for record in records if record.job_id in allowed_job_ids]
+
+    return records
+
+
 def _plain_english_status(is_abnormal: bool | None) -> str:
     if is_abnormal is True:
         return "Outside normal range"
@@ -62,12 +76,13 @@ def handle_patient_query(
             safety_blocked=True,
         )
 
-    cache_key = make_cache_key(query.text, patient_id, "patient_chat")
+    cache_text = f"{query.text}|filters={json.dumps(query.filters or {}, sort_keys=True)}"
+    cache_key = make_cache_key(cache_text, patient_id, "patient_chat")
     cached = get_cached(cache_key)
     if cached:
         return PatientChatResult(**cached)
 
-    records = get_all_records_for_patient(patient_id, db)
+    records = _filter_records(get_all_records_for_patient(patient_id, db), query.filters)
     all_fields = [f for r in records for f in r.fields]
 
     t_start = time.time()

@@ -16,6 +16,7 @@ import { useDoctorQuery } from '../../hooks/useIntelligence';
 import { usePatientSearch } from '../../hooks/useReports';
 import { normalizeApiError } from '../../lib/apiError';
 import { queryKeys, staleTime } from '../../lib/queryKeys';
+import { getReportDisplayName } from '../../lib/reportName';
 import type { PatientProfile } from '../../types/assignment';
 import {
   isReasoningResult,
@@ -255,7 +256,7 @@ function QuickActionButton({
 
 function reportLabel(report: Report) {
   const date = report.first_uploaded_at ? new Date(report.first_uploaded_at).toLocaleDateString() : 'No date';
-  return `${report.file_name} · ${date}`;
+  return `${getReportDisplayName(report)} · ${date}`;
 }
 
 export function DoctorFloatingAssistant() {
@@ -404,13 +405,14 @@ export function DoctorFloatingAssistant() {
       report_ids: [report.report_id],
       max_fields: 60,
     };
-    const workflow = `Specific Report: ${report.file_name}`;
+    const displayName = getReportDisplayName(report);
+    const workflow = `Specific Report: ${displayName}`;
     setSelectedReport(report);
     setFreeChatEnabled(true);
     setActiveScopeLabel(workflow);
     setActiveRequestMode('report_discussion');
     setActiveFilters(filters);
-    await sendPrompt(`Summarize ${report.file_name}. Use only this selected report context and highlight key findings, abnormalities, and verification concerns.`, {
+    await sendPrompt(`Summarize ${displayName}. Use only this selected report context and highlight key findings, abnormalities, and verification concerns.`, {
       mode: 'report_discussion',
       workflow,
       filters,
@@ -869,7 +871,7 @@ export function DoctorFloatingAssistant() {
                             disabled={doctorQuery.isPending}
                             onClick={() => void activateSpecificReport(report)}
                           >
-                            <span className="block font-medium text-clinical-text-primary">{report.file_name}</span>
+                            <span className="block font-medium text-clinical-text-primary">{getReportDisplayName(report)}</span>
                             <span className="text-xs text-clinical-text-secondary">{reportLabel(report)}</span>
                           </button>
                         ))}

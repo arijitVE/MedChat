@@ -22,6 +22,9 @@ class ReportStatusResponse(BaseModel):
     doctor_id: UUID | None = None
     file_path: str
     file_name: str
+    display_report_name: str | None = None
+    patient_name: str | None = None
+    patient_uid: str | None = None
     file_mime: str
     file_size_bytes: int | None = None
     upload_document_type: str = "unknown"
