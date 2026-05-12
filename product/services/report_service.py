@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import datetime as dt
 from uuid import UUID
 
 from fastapi import HTTPException
@@ -56,6 +57,45 @@ def _trend_direction(values: list[float]) -> tuple[str, float | None]:
     if percent_change < -5:
         return "decreasing", percent_change
     return "stable", percent_change
+
+
+def _coerce_report_date(value) -> dt.date | None:
+    if value is None:
+        return None
+    if isinstance(value, dt.datetime):
+        return value.date()
+    if isinstance(value, dt.date):
+        return value
+
+    raw = str(value).strip()
+    if not raw:
+        return None
+
+    for fmt in (
+        "%Y-%m-%d",
+        "%d/%m/%Y",
+        "%d-%m-%Y",
+        "%m/%d/%Y",
+        "%d/%b/%Y",
+        "%d/%B/%Y",
+        "%d-%b-%Y",
+        "%d-%B-%Y",
+        "%d %b %Y",
+        "%d %B %Y",
+    ):
+        try:
+            return dt.datetime.strptime(raw[:10], fmt).date()
+        except ValueError:
+            continue
+
+    try:
+        return dt.datetime.fromisoformat(raw.replace("Z", "+00:00")).date()
+    except ValueError:
+        return None
+
+
+def _format_clinical_date(value: dt.date | None) -> str:
+    return value.strftime("%d/%m/%Y") if value else ""
 
 
 def _get_report_row(report_id: str | UUID, db: Session):
@@ -286,6 +326,7 @@ def get_patient_sql_analytics(
                        r.first_uploaded_at,
                        r.last_edited_at,
                        r.is_duplicate,
+                       COALESCE(NULLIF(rf.collection_date, ''), r.first_uploaded_at::date::text) AS raw_report_date,
                        ROW_NUMBER() OVER (
                            PARTITION BY r.patient_id,
                                         COALESCE(NULLIF(rf.collection_date, ''), r.first_uploaded_at::date::text),
@@ -311,11 +352,10 @@ def get_patient_sql_analytics(
             SELECT patient_id, job_id, name, value, numeric_value, unit,
                    reference_range, collection_date, confidence, status,
                    report_id, file_name, lifecycle_status, first_uploaded_at,
-                   last_edited_at
+                   last_edited_at, raw_report_date
             FROM ranked
             WHERE rn = 1
             ORDER BY name ASC,
-                     COALESCE(NULLIF(collection_date, ''), first_uploaded_at::date::text) ASC,
                      first_uploaded_at ASC
             """
         ),
@@ -327,13 +367,13 @@ def get_patient_sql_analytics(
         value = _parse_float(item["numeric_value"])
         ref_low, ref_high = _parse_reference_range(item["reference_range"])
         status = _field_status(value, ref_low, ref_high)
-        report_date = item["collection_date"] or (
-            item["first_uploaded_at"].date().isoformat() if item["first_uploaded_at"] else ""
-        )
+        report_date_value = _coerce_report_date(item["raw_report_date"]) or _coerce_report_date(item["first_uploaded_at"])
         item.update(
             {
                 "numeric_value": value,
-                "report_date": report_date,
+                "report_date": report_date_value.isoformat() if report_date_value else "",
+                "display_report_date": _format_clinical_date(report_date_value),
+                "report_sort_date": report_date_value or dt.date.min,
                 "reference_min": ref_low,
                 "reference_max": ref_high,
                 "analytics_status": status,
@@ -350,6 +390,7 @@ def get_patient_sql_analytics(
     insufficient_data = []
 
     for field_name, field_rows in rows_by_field.items():
+        field_rows.sort(key=lambda row: (row["report_sort_date"], row["first_uploaded_at"] or dt.datetime.min))
         numeric_values = [row["numeric_value"] for row in field_rows if row["numeric_value"] is not None]
         direction, percent_change = _trend_direction(numeric_values)
         latest = field_rows[-1]
@@ -362,6 +403,7 @@ def get_patient_sql_analytics(
                 "display_value": row["value"],
                 "unit": row["unit"],
                 "report_date": row["report_date"],
+                "display_report_date": row["display_report_date"],
                 "reference_min": row["reference_min"],
                 "reference_max": row["reference_max"],
                 "reference_range": row["reference_range"],

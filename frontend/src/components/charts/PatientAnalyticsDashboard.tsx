@@ -32,12 +32,44 @@ interface PatientAnalyticsDashboardProps {
 
 interface ChartPoint {
   date: string;
+  displayDate: string;
+  timestamp: number;
   value: number | null;
   referenceMin: number | null;
   referenceMax: number | null;
   status: string;
   displayValue: string;
   reportName: string;
+}
+
+function dateToTimestamp(date: string): number {
+  const parsed = Date.parse(date);
+  return Number.isNaN(parsed) ? 0 : parsed;
+}
+
+function formatClinicalDate(date: string): string {
+  const parsed = new Date(date);
+  if (Number.isNaN(parsed.getTime())) {
+    return date;
+  }
+
+  return new Intl.DateTimeFormat('en-GB', {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+  }).format(parsed);
+}
+
+function formatClinicalTimestamp(timestamp: number): string {
+  if (!timestamp) {
+    return '';
+  }
+
+  return new Intl.DateTimeFormat('en-GB', {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+  }).format(new Date(timestamp));
 }
 
 function formatNumber(value: number | null | undefined, digits = 1) {
@@ -78,15 +110,23 @@ function trendIcon(direction: string) {
 }
 
 function toChartData(trend: PatientFieldTrend): ChartPoint[] {
-  return trend.values.map((point) => ({
-    date: point.report_date,
-    value: point.value,
-    referenceMin: point.reference_min,
-    referenceMax: point.reference_max,
-    status: point.status,
-    displayValue: point.display_value,
-    reportName: point.report_name,
-  }));
+  const byTimestamp = new Map<number, ChartPoint>();
+  trend.values.forEach((point, index) => {
+    const timestamp = dateToTimestamp(point.report_date) || index;
+    byTimestamp.set(timestamp, {
+      date: point.report_date,
+      displayDate: point.display_report_date ?? formatClinicalDate(point.report_date),
+      timestamp,
+      value: point.value,
+      referenceMin: point.reference_min,
+      referenceMax: point.reference_max,
+      status: point.status,
+      displayValue: point.display_value,
+      reportName: point.report_name,
+    });
+  });
+
+  return Array.from(byTimestamp.values()).sort((a, b) => a.timestamp - b.timestamp);
 }
 
 function hasConstantReferenceRange(trend: PatientFieldTrend) {
@@ -221,7 +261,16 @@ function TrendChart({ trend }: { trend: PatientFieldTrend }) {
         <ResponsiveContainer width="100%" height="100%">
           <LineChart data={chartData} margin={{ top: 8, right: 16, bottom: 0, left: 0 }}>
             <CartesianGrid stroke="#E2E8F0" strokeDasharray="3 3" />
-            <XAxis dataKey="date" tick={{ fontSize: 12, fill: '#475569' }} tickLine={false} />
+            <XAxis
+              dataKey="timestamp"
+              type="number"
+              scale="time"
+              domain={['dataMin', 'dataMax']}
+              tick={{ fontSize: 12, fill: '#475569' }}
+              tickFormatter={(value) => formatClinicalTimestamp(Number(value))}
+              tickLine={false}
+              minTickGap={28}
+            />
             <YAxis tick={{ fontSize: 12, fill: '#475569' }} tickLine={false} width={44} />
             {hasReferenceArea && referenceMin !== null && referenceMax !== null ? (
               <ReferenceArea y1={referenceMin} y2={referenceMax} fill="#DCFCE7" fillOpacity={0.45} />
@@ -233,7 +282,7 @@ function TrendChart({ trend }: { trend: PatientFieldTrend }) {
               ]}
               labelFormatter={(label, payload) => {
                 const point = payload[0]?.payload as ChartPoint | undefined;
-                return point ? `${label} · ${point.reportName}` : label;
+                return point ? `${point.displayDate} · ${point.reportName}` : formatClinicalTimestamp(Number(label));
               }}
             />
             {!hasReferenceArea ? (
@@ -246,7 +295,7 @@ function TrendChart({ trend }: { trend: PatientFieldTrend }) {
             <Scatter data={chartData} dataKey="value">
               {chartData.map((point) => (
                 <Cell
-                  key={`${trend.field_name}-${point.date}-${point.displayValue}`}
+                  key={`${trend.field_name}-${point.timestamp}-${point.displayValue}`}
                   fill={point.status === 'normal' ? '#1D4ED8' : point.status === 'unknown' ? '#94A3B8' : '#DC2626'}
                 />
               ))}

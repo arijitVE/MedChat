@@ -129,6 +129,7 @@ export interface PatientTrendValue {
   display_value: string;
   unit: string | null;
   report_date: string;
+  display_report_date?: string;
   reference_min: number | null;
   reference_max: number | null;
   reference_range: string | null;
