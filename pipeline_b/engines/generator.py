@@ -90,6 +90,7 @@ def _build_context(fields: list, max_fields: int = 15) -> str:
 def generate_doctor_reasoning(
     fields: list,
     query: str,
+    max_fields: int = 15,
 ) -> dict:
     t = time.time()
     context_fields = sorted(
@@ -99,8 +100,8 @@ def generate_doctor_reasoning(
             f.confidence,
         ),
         reverse=True,
-    )[:15]
-    context = _build_context(context_fields)
+    )[:max_fields]
+    context = _build_context(context_fields, max_fields=max_fields)
     prompt = ChatPromptTemplate.from_messages(
         [
             SystemMessage(content=DOCTOR_SYSTEM),

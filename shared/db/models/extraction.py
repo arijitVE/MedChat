@@ -67,6 +67,11 @@ class ReportField(Base):
         String(32), nullable=True,
         comment="Sample collection or test date",
     )
+    numeric_value: Mapped[Optional[float]] = mapped_column(
+        Float,
+        nullable=True,
+        comment="Parsed numeric value for trend analytics when the extracted value is numeric",
+    )
 
     # ------ Confidence & Status ------
     confidence: Mapped[float] = mapped_column(
@@ -103,6 +108,7 @@ def upsert_fields(
     db: Session,
     job_id: str,
     scored_fields: list[Any],
+    patient_id: str | None = None,
 ) -> None:
     """Bulk upsert scored fields into report_fields.
 
@@ -126,15 +132,14 @@ def upsert_fields(
         return
 
     for field in scored_fields:
-        # Extract patient_id from the parent job if available
-        # The caller should have set patient_id on the field, or we look it up
-        patient_id = getattr(field, "patient_id", "")
+        field_patient_id = patient_id or getattr(field, "patient_id", "")
 
         values = {
             "job_id": job_id,
-            "patient_id": patient_id,
+            "patient_id": field_patient_id,
             "name": field.name,
             "value": field.value,
+            "numeric_value": _parse_numeric_value(field.value),
             "unit": getattr(field, "unit", None),
             "reference_range": getattr(field, "reference_range", None),
             "collection_date": getattr(field, "collection_date", None),
@@ -161,6 +166,16 @@ def upsert_fields(
     db.flush()
 
 
+def _parse_numeric_value(value: Any) -> float | None:
+    if value is None:
+        return None
+
+    try:
+        return float(str(value).strip().replace(",", ""))
+    except ValueError:
+        return None
+
+
 def upsert_single_field(db: Session, job_id: str, patient_id: str, **field_data: Any) -> None:
     """Upsert a single report_fields row.
 
@@ -173,6 +188,9 @@ def upsert_single_field(db: Session, job_id: str, patient_id: str, **field_data:
         patient_id: Patient ID.
         **field_data: Column values including at minimum 'name' and 'value'.
     """
+    if "numeric_value" not in field_data and "value" in field_data:
+        field_data["numeric_value"] = _parse_numeric_value(field_data["value"])
+
     values = {"job_id": job_id, "patient_id": patient_id, **field_data}
     update_values = {
         k: v for k, v in field_data.items()

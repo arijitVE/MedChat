@@ -11,6 +11,53 @@ from product.services import notification_service, verification_service
 from product.services.assignment_service import verify_doctor_patient_access
 
 
+def _parse_float(value) -> float | None:
+    if value is None:
+        return None
+    try:
+        return float(str(value).strip().replace(",", ""))
+    except ValueError:
+        return None
+
+
+def _parse_reference_range(reference_range: str | None) -> tuple[float | None, float | None]:
+    if not reference_range:
+        return None, None
+
+    import re
+
+    cleaned = reference_range.replace(",", "")
+    match = re.search(r"([\d]+\.?\d*)\s*[-–]\s*([\d]+\.?\d*)", cleaned)
+    if not match:
+        return None, None
+    return float(match.group(1)), float(match.group(2))
+
+
+def _field_status(value: float | None, ref_low: float | None, ref_high: float | None) -> str:
+    if value is None or (ref_low is None and ref_high is None):
+        return "unknown"
+    if ref_low is not None and value < ref_low:
+        return "low"
+    if ref_high is not None and value > ref_high:
+        return "high"
+    return "normal"
+
+
+def _trend_direction(values: list[float]) -> tuple[str, float | None]:
+    if len(values) < 2:
+        return "insufficient_data", None
+    first = values[0]
+    latest = values[-1]
+    percent_change = ((latest - first) / first * 100) if first != 0 else None
+    if percent_change is None:
+        return "insufficient_data", None
+    if percent_change > 5:
+        return "increasing", percent_change
+    if percent_change < -5:
+        return "decreasing", percent_change
+    return "stable", percent_change
+
+
 def _get_report_row(report_id: str | UUID, db: Session):
     row = db.execute(
         text(
@@ -210,78 +257,212 @@ def get_patient_sql_analytics(
     patient_id: str | UUID,
     db: Session,
 ) -> dict:
-    # ANALYTICS: SQL engine only — never LLM
-    # ANALYTICS: deduplicated on (patient_id, collection_date, field_name) — FIX 9c
+    # ANALYTICS: SQL engine only — never LLM-generated numbers.
+    # Values are sourced from structured report_fields joined to patient reports.
     rows = db.execute(
         text(
             """
             WITH ranked AS (
-                SELECT rf.patient_id, rf.collection_date, rf.name, rf.numeric_value,
-                       r.is_duplicate, r.last_edited_at, r.first_uploaded_at,
+                SELECT r.patient_id,
+                       rf.job_id,
+                       rf.name,
+                       rf.value,
+                       COALESCE(
+                           rf.numeric_value,
+                           CASE
+                               WHEN REPLACE(TRIM(rf.value), ',', '') ~ '^-?[0-9]+([.][0-9]+)?$'
+                               THEN CAST(REPLACE(TRIM(rf.value), ',', '') AS FLOAT)
+                               ELSE NULL
+                           END
+                       ) AS numeric_value,
+                       rf.unit,
+                       rf.reference_range,
+                       rf.collection_date,
+                       rf.confidence,
+                       rf.status,
+                       r.report_id,
+                       r.file_name,
+                       r.lifecycle_status,
+                       r.first_uploaded_at,
+                       r.last_edited_at,
+                       r.is_duplicate,
                        ROW_NUMBER() OVER (
-                           PARTITION BY rf.patient_id, rf.collection_date, rf.name
+                           PARTITION BY r.patient_id,
+                                        COALESCE(NULLIF(rf.collection_date, ''), r.first_uploaded_at::date::text),
+                                        rf.name,
+                                        r.report_id
                            ORDER BY r.is_duplicate ASC,
                                     r.last_edited_at DESC NULLS LAST,
                                     r.first_uploaded_at DESC
                        ) AS rn
                 FROM report_fields rf
                 JOIN reports r ON r.job_id = rf.job_id
-                WHERE rf.patient_id = :patient_id
-                  AND rf.numeric_value IS NOT NULL
+                WHERE r.patient_id = :patient_id
+                  AND COALESCE(
+                      rf.numeric_value,
+                      CASE
+                          WHEN REPLACE(TRIM(rf.value), ',', '') ~ '^-?[0-9]+([.][0-9]+)?$'
+                          THEN CAST(REPLACE(TRIM(rf.value), ',', '') AS FLOAT)
+                          ELSE NULL
+                      END
+                  ) IS NOT NULL
+                  AND r.lifecycle_status != 'failed'
             )
-            SELECT name AS field_name,
-                   COUNT(*) AS sample_size,
-                   AVG(numeric_value) AS mean,
-                   PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY numeric_value) AS median,
-                   MIN(numeric_value) AS min_value,
-                   MAX(numeric_value) AS max_value
+            SELECT patient_id, job_id, name, value, numeric_value, unit,
+                   reference_range, collection_date, confidence, status,
+                   report_id, file_name, lifecycle_status, first_uploaded_at,
+                   last_edited_at
             FROM ranked
             WHERE rn = 1
-            GROUP BY name
-            ORDER BY name ASC
+            ORDER BY name ASC,
+                     COALESCE(NULLIF(collection_date, ''), first_uploaded_at::date::text) ASC,
+                     first_uploaded_at ASC
             """
         ),
         {"patient_id": str(patient_id)},
     ).mappings().all()
-    fields = [dict(row) for row in rows]
-    normal_fields = [
-        {
-            "field_id": field["field_name"],
-            "job_id": "",
-            "patient_id": str(patient_id),
-            "name": field["field_name"],
-            "raw_name": field["field_name"],
-            "value": str(round(float(field["mean"]), 2)) if field["mean"] is not None else "",
-            "numeric_value": float(field["mean"]) if field["mean"] is not None else None,
-            "unit": None,
-            "reference_range": None,
-            "ref_low": None,
-            "ref_high": None,
-            "confidence": 1.0,
-            "status": "aggregate",
-            "is_abnormal": None,
+    rows_by_field: dict[str, list[dict]] = {}
+    for row in rows:
+        item = dict(row)
+        value = _parse_float(item["numeric_value"])
+        ref_low, ref_high = _parse_reference_range(item["reference_range"])
+        status = _field_status(value, ref_low, ref_high)
+        report_date = item["collection_date"] or (
+            item["first_uploaded_at"].date().isoformat() if item["first_uploaded_at"] else ""
+        )
+        item.update(
+            {
+                "numeric_value": value,
+                "report_date": report_date,
+                "reference_min": ref_low,
+                "reference_max": ref_high,
+                "analytics_status": status,
+                "is_abnormal": status in {"low", "high"},
+            }
+        )
+        rows_by_field.setdefault(str(item["name"]), []).append(item)
+
+    trends = []
+    abnormal_fields = []
+    normal_fields = []
+    critical_changes = []
+    stable_parameters = []
+    insufficient_data = []
+
+    for field_name, field_rows in rows_by_field.items():
+        numeric_values = [row["numeric_value"] for row in field_rows if row["numeric_value"] is not None]
+        direction, percent_change = _trend_direction(numeric_values)
+        latest = field_rows[-1]
+        latest_ref_low = latest["reference_min"]
+        latest_ref_high = latest["reference_max"]
+        latest_status = latest["analytics_status"]
+        values = [
+            {
+                "value": row["numeric_value"],
+                "display_value": row["value"],
+                "unit": row["unit"],
+                "report_date": row["report_date"],
+                "reference_min": row["reference_min"],
+                "reference_max": row["reference_max"],
+                "reference_range": row["reference_range"],
+                "status": row["analytics_status"],
+                "is_abnormal": row["is_abnormal"],
+                "report_id": str(row["report_id"]),
+                "report_name": row["file_name"],
+                "confidence": row["confidence"],
+            }
+            for row in field_rows
+        ]
+        trend = {
+            "field_name": field_name,
+            "unit": latest["unit"],
+            "sample_size": len(field_rows),
+            "trend_direction": direction,
+            "percent_change": percent_change,
+            "latest_value": latest["numeric_value"],
+            "latest_display_value": latest["value"],
+            "latest_status": latest_status,
+            "latest_report_date": latest["report_date"],
+            "latest_reference_min": latest_ref_low,
+            "latest_reference_max": latest_ref_high,
+            "values": values,
         }
-        for field in fields
-    ]
+        trends.append(trend)
+
+        clinical_field = {
+            "field_id": f"{latest['job_id']}_{field_name}",
+            "job_id": latest["job_id"],
+            "patient_id": str(patient_id),
+            "name": field_name,
+            "raw_name": field_name,
+            "value": latest["value"],
+            "numeric_value": latest["numeric_value"],
+            "unit": latest["unit"],
+            "reference_range": latest["reference_range"],
+            "ref_low": latest_ref_low,
+            "ref_high": latest_ref_high,
+            "confidence": latest["confidence"],
+            "status": latest_status,
+            "is_abnormal": latest_status in {"low", "high"},
+        }
+        if clinical_field["is_abnormal"]:
+            abnormal_fields.append(clinical_field)
+        elif latest_status == "normal":
+            normal_fields.append(clinical_field)
+
+        if direction == "stable":
+            stable_parameters.append(trend)
+        if len(field_rows) < 2:
+            insufficient_data.append(trend)
+        if latest_status in {"low", "high"} or (
+            percent_change is not None and abs(percent_change) >= 20
+        ):
+            critical_changes.append(trend)
+
+    trends.sort(key=lambda item: (item["sample_size"] < 2, item["field_name"]))
+    total_values = sum(trend["sample_size"] for trend in trends)
+    trend_ready_count = sum(1 for trend in trends if trend["sample_size"] >= 2)
+
     return {
         "patient_id": str(patient_id),
         "analytics_engine": "sql",
-        "fields": fields,
-        "abnormal_fields": [],
+        "overview": {
+            "tracked_fields": len(trends),
+            "trend_ready_fields": trend_ready_count,
+            "total_values": total_values,
+            "abnormal_latest_count": len(abnormal_fields),
+            "critical_change_count": len(critical_changes),
+            "insufficient_data_count": len(insufficient_data),
+        },
+        "fields": [
+            {
+                "field_name": trend["field_name"],
+                "sample_size": trend["sample_size"],
+                "latest_value": trend["latest_value"],
+                "unit": trend["unit"],
+                "trend_direction": trend["trend_direction"],
+            }
+            for trend in trends
+        ],
+        "trends": trends,
+        "critical_changes": critical_changes,
+        "stable_parameters": stable_parameters,
+        "insufficient_data": insufficient_data,
+        "abnormal_fields": abnormal_fields,
         "normal_fields": normal_fields,
-        "abnormal_count": 0,
+        "abnormal_count": len(abnormal_fields),
         "normal_count": len(normal_fields),
         "chart_json": {
             "type": "bar_chart",
             "data": {
-                "fields": [field["field_name"] for field in fields],
-                "values": [float(field["mean"]) if field["mean"] is not None else 0 for field in fields],
-                "ref_low": [None for _ in fields],
-                "ref_high": [None for _ in fields],
+                "fields": [trend["field_name"] for trend in trends],
+                "values": [trend["latest_value"] for trend in trends],
+                "ref_low": [trend["latest_reference_min"] for trend in trends],
+                "ref_high": [trend["latest_reference_max"] for trend in trends],
             },
             "meta": {"patient_id": str(patient_id), "date": "aggregate"},
         },
-        "ai_insight": "SQL aggregate analytics are shown from verified report fields.",
+        "ai_insight": "Analytics are calculated from structured report fields stored in the database. Numeric chart values are not LLM-generated.",
         "cached": False,
     }
 

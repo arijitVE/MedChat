@@ -1,14 +1,13 @@
 import { useMemo, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { AbnormalityPanel } from '../../components/charts/AbnormalityPanel';
-import { TrendLineChart } from '../../components/charts/TrendLineChart';
+import { PatientAnalyticsDashboard } from '../../components/charts/PatientAnalyticsDashboard';
 import { RetryPanel } from '../../components/feedback/RetryPanel';
 import { ReportCard } from '../../components/report/ReportCard';
 import { Card } from '../../components/ui/Card';
 import { EmptyState } from '../../components/ui/EmptyState';
 import { Skeleton } from '../../components/ui/Skeleton';
 import { useDoctorAssignments } from '../../hooks/useAssignments';
-import { useAnalytics, useTrend } from '../../hooks/useIntelligence';
+import { useAnalytics } from '../../hooks/useIntelligence';
 import { useDoctorReports } from '../../hooks/useReports';
 import { normalizeApiError } from '../../lib/apiError';
 
@@ -23,11 +22,6 @@ export default function PatientDetailPage() {
     () => (assignments.data ?? []).find((item) => item.patient_id === patientId),
     [assignments.data, patientId],
   );
-  const selectedField = useMemo(() => {
-    const field = analytics.data?.abnormal_fields[0] ?? analytics.data?.normal_fields[0];
-    return field?.name ?? '';
-  }, [analytics.data]);
-  const trend = useTrend(patientId, selectedField);
 
   if (assignments.isError) {
     return <RetryPanel onRetry={() => void assignments.refetch()} message={normalizeApiError(assignments.error).message} />;
@@ -87,22 +81,7 @@ export default function PatientDetailPage() {
       ) : analytics.isError ? (
         <RetryPanel onRetry={() => void analytics.refetch()} message={normalizeApiError(analytics.error).message} />
       ) : (
-        <div className="grid gap-6">
-          <AbnormalityPanel
-            abnormalFields={analytics.data?.abnormal_fields ?? []}
-            normalFields={analytics.data?.normal_fields ?? []}
-            isLoading={analytics.isLoading}
-          />
-          {selectedField ? (
-            <TrendLineChart
-              data={trend.data?.data_points ?? []}
-              meta={trend.data?.chart_json.meta ?? { label: selectedField, unit: '', ref_low: null, ref_high: null }}
-              insight={trend.data?.insight}
-              trendDirection={trend.data?.trend_direction}
-              isLoading={trend.isLoading}
-            />
-          ) : null}
-        </div>
+        <PatientAnalyticsDashboard analytics={analytics.data} isLoading={analytics.isLoading} />
       )}
     </div>
   );

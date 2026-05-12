@@ -34,7 +34,7 @@ def process_document_task(self, job_id: str, patient_id: str, file_bytes_hex: st
             ocr_latency_ms=output.ocr_latency_ms,
             llm_latency_ms=output.llm_latency_ms
         )
-        upsert_fields(db, output.job_id, output.scored_fields)
+        upsert_fields(db, output.job_id, output.scored_fields, patient_id=output.patient_id)
         
         total_latency_ms = (time.time() - start_time) * 1000
         upsert_job(db, job_id, total_pipeline_latency_ms=total_latency_ms)

@@ -690,7 +690,7 @@ def run_pipeline_a_task(
             ocr_latency_ms=output.ocr_latency_ms,
             llm_latency_ms=output.llm_latency_ms,
         )
-        upsert_fields(db, output.job_id, output.scored_fields)
+        upsert_fields(db, output.job_id, output.scored_fields, patient_id=output.patient_id)
         db.commit()
         on_pipeline_a_complete(
             job_id=job_id,

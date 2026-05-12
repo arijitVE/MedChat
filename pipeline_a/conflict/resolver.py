@@ -76,7 +76,7 @@ def resolve(
         hitl_reasons=hitl_reasons,
         structured_text_for_embedding=structured_text_for_embedding
     )
-    upsert_fields(db, doc.job_id, scored_fields)
+    upsert_fields(db, doc.job_id, scored_fields, patient_id=doc.patient_id)
     
     logger.info(
         "conflict_resolution",

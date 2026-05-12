@@ -38,21 +38,23 @@ export const reportsApi = {
       formData,
       { headers: { 'Content-Type': 'multipart/form-data' }, params: { force } },
     ),
-  getDoctorReports: (params?: DoctorReportsParams) =>
+  getDoctorReports: (params?: DoctorReportsParams, options?: RequestOptions) =>
     apiClient.get<Report[]>('/doctor/reports/search', {
       params: {
         lifecycle_status: params?.lifecycle_status,
         patient_id: params?.patient_id,
         query: params?.query,
       },
+      signal: options?.signal,
     }),
-  fetchDoctorReports: (params?: DoctorReportsParams) =>
+  fetchDoctorReports: (params?: DoctorReportsParams, options?: RequestOptions) =>
     apiClient.get<Report[]>('/doctor/reports/search', {
       params: {
         lifecycle_status: params?.lifecycle_status,
         patient_id: params?.patient_id,
         query: params?.query,
       },
+      signal: options?.signal,
     }),
   getReport: (reportId: string) =>
     apiClient.get<ReportDetailResponse>(`/doctor/reports/${reportId}`),
