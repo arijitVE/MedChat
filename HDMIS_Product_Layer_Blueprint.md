@@ -1,4 +1,4 @@
-# HDMIS Product Layer — Implementation Blueprint v5
+# HDIMS Product Layer — Implementation Blueprint v5
 ### Auth, Verification, Upload, Assignment & Lifecycle Management
 ### ⚠️ UPDATED — Duplicate detection hardened + 5 remaining issues resolved
 
@@ -52,7 +52,7 @@
 
 ## AGENT INSTRUCTIONS — READ BEFORE WRITING ANY CODE
 
-> This is the authoritative specification for the Product Layer of the HDMIS system.
+> This is the authoritative specification for the Product Layer of the HDIMS system.
 > Pipeline A (extraction) and Pipeline B (intelligence) are already built and tested.
 > Do NOT modify any existing Pipeline A or Pipeline B code.
 > This layer wraps around both pipelines — it does not replace or modify them.
@@ -95,7 +95,7 @@ React frontend API contracts.
 ### Mandatory Folder Structure
 
 ```
-hdmis/
+HDIMS/
 │
 ├── shared/                          → Already exists — do NOT modify
 ├── pipeline_a/                      → Already exists — do NOT modify
@@ -1637,7 +1637,7 @@ ingestion is confirmed working.
 DO NOT touch any pipeline code.
 
 Verify by running:
-  psql -U postgres -d hdmis -c "\dt"
+  psql -U postgres -d HDIMS -c "\dt"
   → should show all 5 new tables plus existing tables
 
 Report back: list of all tables with row counts.
@@ -1684,7 +1684,7 @@ Implement exactly as specified in Section 2.
 Add SECRET_KEY, JWT settings, and RATE_LIMIT_STORAGE_URI to shared/config.py.
 
 Verify with:
-  venvHdmis/bin/python -c "
+  venvHDIMS/bin/python -c "
   import sys; sys.path.insert(0, '.')
   from product.auth.jwt_handler import create_access_token, decode_access_token
   token = create_access_token('user-123', 'doctor', 'test@test.com')

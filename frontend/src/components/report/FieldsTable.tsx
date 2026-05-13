@@ -5,7 +5,7 @@ import type { ReportField } from '../../types/report';
 interface FieldsTableProps {
   fields: ReportField[];
   reportId: string;
-  role: 'doctor' | 'patient';
+  role: 'doctor' | 'patient' | 'admin';
   isLoading?: boolean;
   onVerifyField?: (reportId: string, field: ReportField) => void;
   onEditField?: (reportId: string, field: ReportField, value: string) => void;

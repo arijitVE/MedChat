@@ -45,7 +45,7 @@ export function Topbar() {
           <Menu className="h-5 w-5" aria-hidden="true" />
         </Button>
         <span className="text-sm font-medium text-clinical-text-secondary">
-          {user?.full_name ?? 'HDMIS'}
+          {user?.full_name ?? 'HDIMS'}
         </span>
       </div>
       <div className="flex items-center gap-3">

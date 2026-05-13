@@ -1,6 +1,7 @@
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi.responses import FileResponse
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
@@ -8,8 +9,17 @@ from product.auth.role_guard import require_role
 from product.schemas.admin import AdminStats, HITLQueueItem
 from product.schemas.assignment import AssignmentResponse
 from product.schemas.user import UserProfile
+from product.schemas.verification import (
+    FieldEditRequest,
+    FieldStatus,
+    FieldVerificationRequest,
+    ReportVerificationResponse,
+    VerificationResponse,
+)
 from product.services import admin_service
 from product.services import notification_service
+from product.services import report_service
+from product.services import verification_service
 from shared.db.session import get_db
 
 
@@ -119,6 +129,103 @@ def list_reports(
     db: Session = Depends(get_db),
 ):
     return admin_service.list_reports(db, status=status, page=page, page_size=page_size)
+
+
+@router.get("/reports/{report_id}")
+def get_report(
+    report_id: UUID,
+    current_user: UserProfile = Depends(require_role("admin")),
+    db: Session = Depends(get_db),
+):
+    return report_service.get_report_for_admin(report_id, db)
+
+
+@router.get("/reports/{report_id}/raw-file")
+def get_raw_report(
+    report_id: UUID,
+    current_user: UserProfile = Depends(require_role("admin")),
+    db: Session = Depends(get_db),
+):
+    file_info = report_service.get_raw_report_file_for_admin(report_id, current_user.user_id, db)
+    path = file_info["path"]
+    if not path:
+        raise HTTPException(status_code=404, detail="Raw report file not found")
+    return FileResponse(
+        path,
+        media_type=file_info["media_type"],
+        filename=file_info["filename"],
+    )
+
+
+@router.post("/reports/{report_id}/verify", response_model=ReportVerificationResponse)
+def verify_whole_report(
+    report_id: UUID,
+    current_user: UserProfile = Depends(require_role("admin")),
+    db: Session = Depends(get_db),
+):
+    return verification_service.verify_report(str(report_id), current_user, db)
+
+
+@router.post("/reports/{report_id}/unlock", response_model=ReportVerificationResponse)
+def unlock_verified_report(
+    report_id: UUID,
+    current_user: UserProfile = Depends(require_role("admin")),
+    db: Session = Depends(get_db),
+):
+    return verification_service.unlock_report(str(report_id), current_user, db)
+
+
+@router.get("/reports/{report_id}/fields", response_model=list[FieldStatus])
+def get_report_fields(
+    report_id: UUID,
+    current_user: UserProfile = Depends(require_role("admin")),
+    db: Session = Depends(get_db),
+):
+    return verification_service.get_field_verification_status(
+        str(report_id),
+        db,
+        requesting_user_role=current_user.role,
+    )
+
+
+@router.post(
+    "/reports/{report_id}/fields/{field_name}/verify",
+    response_model=VerificationResponse,
+)
+def verify_report_field(
+    report_id: UUID,
+    field_name: str,
+    body: FieldVerificationRequest,
+    current_user: UserProfile = Depends(require_role("admin")),
+    db: Session = Depends(get_db),
+):
+    return verification_service.verify_field(
+        str(report_id),
+        field_name,
+        body,
+        current_user,
+        db,
+    )
+
+
+@router.post(
+    "/reports/{report_id}/fields/{field_name}/edit",
+    response_model=VerificationResponse,
+)
+def edit_report_field(
+    report_id: UUID,
+    field_name: str,
+    body: FieldEditRequest,
+    current_user: UserProfile = Depends(require_role("admin")),
+    db: Session = Depends(get_db),
+):
+    return verification_service.edit_field_value(
+        str(report_id),
+        field_name,
+        body,
+        current_user,
+        db,
+    )
 
 
 @router.get("/failed-jobs")

@@ -13,6 +13,14 @@ import type {
   UserListItem,
   AdminReportItem,
 } from '../types/admin';
+import type {
+  FieldEditRequest,
+  FieldVerifyRequest,
+  ReportDetailResponse,
+  ReportField,
+  ReportVerificationResponse,
+} from '../types/report';
+import type { FieldVerification } from '../types/verification';
 import {
   normalizePaginationParams,
   type PaginatedResponse,
@@ -60,6 +68,28 @@ export const adminApi = {
     }),
   getHITLQueue: () =>
     apiClient.get<HITLQueueItem[]>('/admin/hitl-queue'),
+  getReport: (reportId: string) =>
+    apiClient.get<ReportDetailResponse>(`/admin/reports/${reportId}`),
+  getReportFields: (reportId: string) =>
+    apiClient.get<ReportField[]>(`/admin/reports/${reportId}/fields`),
+  getRawReport: (reportId: string) =>
+    apiClient.get<Blob>(`/admin/reports/${reportId}/raw-file`, {
+      responseType: 'blob',
+    }),
+  verifyReport: (reportId: string) =>
+    apiClient.post<ReportVerificationResponse>(`/admin/reports/${reportId}/verify`),
+  unlockReport: (reportId: string) =>
+    apiClient.post<ReportVerificationResponse>(`/admin/reports/${reportId}/unlock`),
+  editField: (reportId: string, fieldName: string, data: FieldEditRequest) =>
+    apiClient.post<FieldVerification>(
+      `/admin/reports/${reportId}/fields/${fieldName}/edit`,
+      data,
+    ),
+  verifyField: (reportId: string, fieldName: string, data: FieldVerifyRequest) =>
+    apiClient.post<FieldVerification>(
+      `/admin/reports/${reportId}/fields/${fieldName}/verify`,
+      data,
+    ),
   getAnalytics: () =>
     apiClient.get<AdminAnalytics>('/admin/analytics'),
   getNotifications: (params: PaginationParams = {}) =>

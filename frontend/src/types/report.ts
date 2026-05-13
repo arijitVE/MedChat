@@ -21,6 +21,10 @@ export interface Report {
   display_report_name?: string | null;
   patient_name?: string | null;
   patient_uid?: string | null;
+  doctor_id?: string | null;
+  doctor_name?: string | null;
+  assigned_doctor_id?: string | null;
+  assigned_doctor_name?: string | null;
   file_mime: string;
   upload_document_type: string;
   inferred_document_type: string;

@@ -25,6 +25,10 @@ const sexOptions: readonly SexOption[] = [
 
 const defaultDoctorSpecialization: DoctorSpecialization = 'General Physician';
 
+function RequiredMark() {
+  return <span className="text-clinical-critical" aria-hidden="true">*</span>;
+}
+
 const signupFields = [
   'email',
   'password',
@@ -224,16 +228,29 @@ export default function SignupPage() {
   };
 
   return (
-    <main className="flex min-h-screen items-center justify-center bg-clinical-bg px-4 py-10">
-      <Card className="w-full max-w-2xl">
-        <div className="mb-6">
-          <h1 className="text-xl font-semibold text-clinical-text-primary">Create account</h1>
-          <p className="mt-1 text-sm text-clinical-text-secondary">{roleLabel}</p>
-        </div>
+    <main className="h-screen overflow-hidden bg-clinical-bg px-4 py-6 sm:px-8 lg:px-12">
+      <div className="mx-auto grid h-full w-full max-w-7xl items-center gap-8 lg:grid-cols-[minmax(0,1fr)_minmax(480px,600px)]">
+        <section className="hidden max-w-2xl lg:flex lg:h-full lg:flex-col lg:justify-center">
+          <div className="inline-flex w-fit self-start rounded-full border border-clinical-primary-light bg-clinical-surface px-4 py-2 text-sm font-semibold text-clinical-primary shadow-sm">
+            HDIMS
+          </div>
+          <h1 className="mt-8 max-w-2xl text-4xl font-semibold leading-tight text-clinical-text-primary sm:text-5xl">
+            Healthcare Data &amp; Insights Management System
+          </h1>
+          <p className="mt-6 max-w-xl text-lg leading-8 text-clinical-text-secondary">
+            Create secure access for patients and clinicians to manage reports, verification, and healthcare insights.
+          </p>
+        </section>
+
+        <Card className="flex max-h-[calc(100vh-3rem)] w-full flex-col overflow-hidden p-0 shadow-xl shadow-slate-200/80">
+          <div className="flex-none px-6 pb-4 pt-6 sm:px-8 sm:pt-8">
+            <p className="text-sm font-semibold text-clinical-primary">{roleLabel}</p>
+            <h2 className="mt-2 text-2xl font-semibold text-clinical-text-primary sm:text-3xl">Create your account</h2>
+          </div>
 
         {formError ? (
           <div
-            className="mb-4 rounded-md border border-clinical-critical bg-clinical-critical-bg px-3 py-2 text-sm text-clinical-critical"
+            className="mx-6 mb-4 rounded-md border border-clinical-critical bg-clinical-critical-bg px-3 py-2 text-sm text-clinical-critical sm:mx-8"
             role="alert"
             aria-live="assertive"
           >
@@ -241,10 +258,11 @@ export default function SignupPage() {
           </div>
         ) : null}
 
-        <form className="grid gap-4 sm:grid-cols-2" onSubmit={(event) => void handleSubmit(onSubmit)(event)}>
+        <div className="min-h-0 flex-1 overflow-y-auto px-6 pb-6 sm:px-8 sm:pb-8">
+          <form className="grid gap-4 sm:grid-cols-2" onSubmit={(event) => void handleSubmit(onSubmit)(event)}>
           <div className="sm:col-span-2">
             <label htmlFor="full_name" className="block text-sm font-medium text-clinical-text-primary">
-              Full name
+              Full name <RequiredMark />
             </label>
             <input
               id="full_name"
@@ -264,7 +282,7 @@ export default function SignupPage() {
 
           <div>
             <label htmlFor="email" className="block text-sm font-medium text-clinical-text-primary">
-              Email
+              Email <RequiredMark />
             </label>
             <input
               id="email"
@@ -284,7 +302,7 @@ export default function SignupPage() {
 
           <div>
             <label htmlFor="password" className="block text-sm font-medium text-clinical-text-primary">
-              Password
+              Password <RequiredMark />
             </label>
             <input
               id="password"
@@ -303,13 +321,13 @@ export default function SignupPage() {
           </div>
 
           <fieldset className="sm:col-span-2">
-            <legend className="block text-sm font-medium text-clinical-text-primary">Role</legend>
+            <legend className="block text-sm font-medium text-clinical-text-primary">Role <RequiredMark /></legend>
             <div className="mt-2 grid gap-2 sm:grid-cols-2">
-              <label className="flex cursor-pointer items-center gap-2 rounded-md border border-clinical-border px-3 py-2 text-sm">
+              <label className="flex min-h-12 cursor-pointer items-center gap-2 rounded-lg border border-clinical-border px-4 py-3 text-sm">
                 <input type="radio" value="patient" {...register('role')} />
                 Patient
               </label>
-              <label className="flex cursor-pointer items-center gap-2 rounded-md border border-clinical-border px-3 py-2 text-sm">
+              <label className="flex min-h-12 cursor-pointer items-center gap-2 rounded-lg border border-clinical-border px-4 py-3 text-sm">
                 <input type="radio" value="doctor" {...register('role')} />
                 Doctor
               </label>
@@ -318,7 +336,7 @@ export default function SignupPage() {
 
           <div>
             <label htmlFor="phone_number" className="block text-sm font-medium text-clinical-text-primary">
-              Phone number
+              Phone number <RequiredMark />
             </label>
             <input
               id="phone_number"
@@ -340,7 +358,7 @@ export default function SignupPage() {
             <>
               <div>
                 <label htmlFor="license_number" className="block text-sm font-medium text-clinical-text-primary">
-                  License number
+                  License number <RequiredMark />
                 </label>
                 <input
                   id="license_number"
@@ -359,7 +377,7 @@ export default function SignupPage() {
 
               <div>
                 <label htmlFor="specialization" className="block text-sm font-medium text-clinical-text-primary">
-                  Specialization
+                  Specialization <RequiredMark />
                 </label>
                 <select
                   id="specialization"
@@ -422,7 +440,7 @@ export default function SignupPage() {
             <>
               <div>
                 <label htmlFor="gender" className="block text-sm font-medium text-clinical-text-primary">
-                  Gender
+                  Gender <RequiredMark />
                 </label>
                 <select
                   id="gender"
@@ -447,7 +465,7 @@ export default function SignupPage() {
 
               <div>
                 <label htmlFor="date_of_birth" className="block text-sm font-medium text-clinical-text-primary">
-                  Date of birth
+                  Date of birth <RequiredMark />
                 </label>
                 <input
                   id="date_of_birth"
@@ -473,43 +491,6 @@ export default function SignupPage() {
                   type="text"
                   className="mt-1 block w-full rounded-md border border-clinical-border bg-clinical-surface px-3 py-2 text-sm text-clinical-text-primary outline-none focus:border-clinical-primary focus:ring-2 focus:ring-clinical-primary-light"
                   {...register('blood_group')}
-                />
-              </div>
-
-              <div className="sm:col-span-2">
-                <label htmlFor="allergies" className="block text-sm font-medium text-clinical-text-primary">
-                  Allergies
-                </label>
-                <input
-                  id="allergies"
-                  type="text"
-                  className="mt-1 block w-full rounded-md border border-clinical-border bg-clinical-surface px-3 py-2 text-sm text-clinical-text-primary outline-none focus:border-clinical-primary focus:ring-2 focus:ring-clinical-primary-light"
-                  {...register('allergies')}
-                />
-              </div>
-
-              <div className="sm:col-span-2">
-                <label htmlFor="chronic_conditions" className="block text-sm font-medium text-clinical-text-primary">
-                  Chronic conditions
-                </label>
-                <input
-                  id="chronic_conditions"
-                  type="text"
-                  className="mt-1 block w-full rounded-md border border-clinical-border bg-clinical-surface px-3 py-2 text-sm text-clinical-text-primary outline-none focus:border-clinical-primary focus:ring-2 focus:ring-clinical-primary-light"
-                  {...register('chronic_conditions')}
-                />
-              </div>
-
-              <div className="sm:col-span-2">
-                <label htmlFor="address" className="block text-sm font-medium text-clinical-text-primary">
-                  Address
-                </label>
-                <input
-                  id="address"
-                  type="text"
-                  autoComplete="street-address"
-                  className="mt-1 block w-full rounded-md border border-clinical-border bg-clinical-surface px-3 py-2 text-sm text-clinical-text-primary outline-none focus:border-clinical-primary focus:ring-2 focus:ring-clinical-primary-light"
-                  {...register('address')}
                 />
               </div>
 
@@ -543,19 +524,21 @@ export default function SignupPage() {
           )}
 
           <div className="sm:col-span-2">
-            <Button className="w-full" type="submit" loading={isSubmitting || signup.isPending}>
+            <Button className="min-h-12 w-full rounded-lg bg-clinical-primary-dark" type="submit" loading={isSubmitting || signup.isPending}>
               Create account
             </Button>
           </div>
-        </form>
+          </form>
 
-        <p className="mt-6 text-center text-sm text-clinical-text-secondary">
-          Already have an account?{' '}
-          <Link className="font-medium text-clinical-primary hover:underline" to="/login">
-            Sign in
-          </Link>
-        </p>
-      </Card>
+          <p className="mt-6 text-center text-sm text-clinical-text-secondary">
+            Already have an account?{' '}
+            <Link className="font-medium text-clinical-primary hover:underline" to="/login">
+              Sign in
+            </Link>
+          </p>
+        </div>
+        </Card>
+      </div>
     </main>
   );
 }

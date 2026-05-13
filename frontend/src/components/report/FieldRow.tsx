@@ -7,7 +7,7 @@ import type { ReportField } from '../../types/report';
 interface FieldRowProps {
   field: ReportField;
   reportId: string;
-  role: 'doctor' | 'patient';
+  role: 'doctor' | 'patient' | 'admin';
   onVerifyField?: (reportId: string, field: ReportField) => void;
   onEditField?: (reportId: string, field: ReportField, value: string) => void;
   reportLocked?: boolean;
@@ -27,11 +27,11 @@ function getFieldStatus(field: ReportField) {
   return { label: 'Auto-approved', variant: 'auto' as const, icon: CheckCircle2 };
 }
 
-function canVerifyField(field: ReportField, role: 'doctor' | 'patient'): boolean {
+function canVerifyField(field: ReportField, role: 'doctor' | 'patient' | 'admin'): boolean {
   if (field.is_final) {
     return false;
   }
-  if (role === 'doctor') {
+  if (role === 'doctor' || role === 'admin') {
     return field.pipeline_status === 'hitl' || field.patient_verified;
   }
   return field.pipeline_status === 'hitl' && !field.patient_verified;
@@ -51,7 +51,7 @@ export function FieldRow({
   const canVerify = canVerifyField(field, role);
   const [isInlineEditing, setIsInlineEditing] = useState(false);
   const [draftValue, setDraftValue] = useState(field.value ?? field.display_value ?? '');
-  const canEdit = role === 'doctor' && !reportLocked && Boolean(onEditField);
+  const canEdit = (role === 'doctor' || role === 'admin') && !reportLocked && Boolean(onEditField);
 
   return (
     <tr className="hover:bg-slate-50">

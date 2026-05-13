@@ -11,7 +11,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libpq-dev \
     && rm -rf /var/lib/apt/lists/*
 
-# Install core dependencies for HDMIS Pipeline A
+# Install core dependencies for HDIMS Pipeline A
 RUN pip install --no-cache-dir \
     fastapi uvicorn sqlalchemy pydantic pydantic-settings \
     celery redis structlog rapidfuzz sentence-transformers \

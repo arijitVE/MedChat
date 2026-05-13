@@ -15,9 +15,11 @@ const AdminAuditLogsPage = lazy(() => import('./pages/admin/AuditLogsPage'));
 const AdminDoctorsPage = lazy(() => import('./pages/admin/DoctorsPage'));
 const AdminFailedJobsPage = lazy(() => import('./pages/admin/FailedJobsPage'));
 const HITLOverviewPage = lazy(() => import('./pages/admin/HITLOverviewPage'));
+const HITLReportDetailPage = lazy(() => import('./pages/admin/HITLReportDetailPage'));
 const AdminLogoutPage = lazy(() => import('./pages/admin/LogoutPage'));
 const AdminNotificationsPage = lazy(() => import('./pages/admin/NotificationsPage'));
 const AdminPatientsPage = lazy(() => import('./pages/admin/PatientsPage'));
+const AdminReportDetailPage = lazy(() => import('./pages/admin/AdminReportDetailPage'));
 const AdminReportsPage = lazy(() => import('./pages/admin/ReportsPage'));
 const AdminSettingsPage = lazy(() => import('./pages/admin/SettingsPage'));
 const AdminSystemHealthPage = lazy(() => import('./pages/admin/SystemHealthPage'));
@@ -133,8 +135,10 @@ function App() {
             <Route path="/admin/patients" element={<LazyRoute><AdminPatientsPage /></LazyRoute>} />
             <Route path="/admin/assignments" element={<LazyRoute><AdminAssignmentsPage /></LazyRoute>} />
             <Route path="/admin/reports" element={<LazyRoute><AdminReportsPage /></LazyRoute>} />
+            <Route path="/admin/reports/:reportId" element={<LazyRoute><AdminReportDetailPage /></LazyRoute>} />
             <Route path="/admin/failed-jobs" element={<LazyRoute><AdminFailedJobsPage /></LazyRoute>} />
             <Route path="/admin/hitl" element={<LazyRoute><HITLOverviewPage /></LazyRoute>} />
+            <Route path="/admin/hitl/:reportId" element={<LazyRoute><HITLReportDetailPage /></LazyRoute>} />
             <Route path="/admin/analytics" element={<LazyRoute><AdminAnalyticsPage /></LazyRoute>} />
             <Route path="/admin/notifications" element={<LazyRoute><AdminNotificationsPage /></LazyRoute>} />
             <Route path="/admin/audit-logs" element={<LazyRoute><AdminAuditLogsPage /></LazyRoute>} />

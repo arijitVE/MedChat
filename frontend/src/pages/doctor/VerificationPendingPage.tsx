@@ -46,7 +46,7 @@ export default function VerificationPendingPage() {
           )}
         </div>
         <p className="mt-4 text-sm text-clinical-text-secondary">
-          For urgent access or correction requests, contact your HDMIS administrator or support desk.
+          For urgent access or correction requests, contact your HDIMS administrator or support desk.
         </p>
         <div className="mt-6 flex flex-wrap gap-3">
           <Button variant="secondary" onClick={() => navigate('/login', { replace: true })}>

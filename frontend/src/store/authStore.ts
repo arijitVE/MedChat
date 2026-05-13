@@ -32,7 +32,7 @@ export const useAuthStore = create<AuthState>()(
       },
     }),
     {
-      name: 'hdmis-auth',
+      name: 'HDIMS-auth',
       storage: createJSONStorage(() => localStorage),
       partialize: (state) => ({
         token: state.token,

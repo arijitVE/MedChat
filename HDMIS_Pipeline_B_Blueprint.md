@@ -1,11 +1,11 @@
-# HDMIS Pipeline B — Implementation Blueprint
+# HDIMS Pipeline B — Implementation Blueprint
 ### Clinical Retrieval, Reasoning & Analytics Layer
 
 ---
 
 ## AGENT INSTRUCTIONS — READ BEFORE WRITING ANY CODE
 
-> This document is the authoritative specification for Pipeline B of the HDMIS system.
+> This document is the authoritative specification for Pipeline B of the HDIMS system.
 > Pipeline A is already built and tested. Pipeline B consumes its output exclusively
 > through the adapter layer and the PostgreSQL database.
 > You are a coding agent. Before generating any file, internalize and strictly follow
@@ -38,7 +38,7 @@
 ### Mandatory Folder Structure
 
 ```
-hdmis/
+HDIMS/
 │
 ├── shared/                          → Already exists — do NOT modify
 │
@@ -468,7 +468,7 @@ def get_latest_record(patient_id: str, db: Session) -> PatientRecord | None:
 ## 4. Qdrant Schema (Fixed — Never Change)
 
 ```python
-# Every point stored in hdmis_fields must have this exact payload structure.
+# Every point stored in HDIMS_fields must have this exact payload structure.
 # Source_type field enables Phase 3 PubMed chunks in the same collection.
 
 FIELD_CHUNK_PAYLOAD = {
@@ -506,8 +506,8 @@ FIELD_CHUNK_PAYLOAD = {
 ```
 
 Collections:
-- `hdmis_fields` — one vector per field per document
-- `hdmis_documents` — one vector per full document (structured_text)
+- `HDIMS_fields` — one vector per field per document
+- `HDIMS_documents` — one vector per full document (structured_text)
 
 ---
 
@@ -602,7 +602,7 @@ DO NOT implement any business logic in this step.
 
 **Verification:**
 ```bash
-venvHdmis/bin/python -c "
+venvHDIMS/bin/python -c "
 import sys; sys.path.insert(0, '.')
 from shared.db.session import SessionLocal
 from pipeline_b.adapters.pipeline_a_adapter import (
@@ -769,7 +769,7 @@ from qdrant_client.models import (
 )
 from shared.config import get_settings
 
-COLLECTIONS = {"fields": "hdmis_fields", "documents": "hdmis_documents"}
+COLLECTIONS = {"fields": "HDIMS_fields", "documents": "HDIMS_documents"}
 VECTOR_SIZE = 384
 
 def get_client() -> QdrantClient:
@@ -813,13 +813,13 @@ def search_fields(
 ) -> list:
     """
     Build Filter from non-None params.
-    search hdmis_fields.
+    search HDIMS_fields.
     Return top_k ScoredPoint results.
     """
 
 def get_patient_field_history(patient_id: str, field_name: str) -> list[dict]:
     """
-    Scroll hdmis_fields (not search — we want ALL records not just similar).
+    Scroll HDIMS_fields (not search — we want ALL records not just similar).
     Filter: patient_id == patient_id AND field_name == field_name
     Order by collection_date ASC (in Python after scroll).
     Return list of payload dicts.
@@ -871,8 +871,8 @@ def ingest_patient_record(patient_id: str, job_id: str, db):
     field_vecs = vectors[:len(field_chunks)]
     doc_vecs = vectors[len(field_chunks):]
 
-    upsert_chunks(field_chunks, field_vecs, "hdmis_fields")
-    upsert_chunks(doc_chunks, doc_vecs, "hdmis_documents")
+    upsert_chunks(field_chunks, field_vecs, "HDIMS_fields")
+    upsert_chunks(doc_chunks, doc_vecs, "HDIMS_documents")
 
     invalidate_patient(patient_id)    # clear stale cache
 
@@ -1126,7 +1126,7 @@ def retrieve_by_filter(parsed: ParsedFilter) -> list[dict]:
 def retrieve_semantic(query: str, top_k: int = 10,
                       patient_id: str | None = None) -> list[dict]:
     """
-    Embed query → search hdmis_fields.
+    Embed query → search HDIMS_fields.
     Apply patient_id filter if provided.
     Return list of payload dicts.
     Log: retrieval_type=semantic, result_count, top_score

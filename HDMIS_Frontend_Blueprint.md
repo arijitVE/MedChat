@@ -1,4 +1,4 @@
-# HDMIS Frontend — Implementation Blueprint v4
+# HDIMS Frontend — Implementation Blueprint v4
 ### React + TypeScript Clinical Dashboard
 ### ⚠️ FINAL v4 — All 15 original gaps resolved + 13 production gaps addressed
 
@@ -65,7 +65,7 @@
 
 ## AGENT INSTRUCTIONS — READ BEFORE WRITING ANY CODE
 
-> This is the authoritative specification for the HDMIS React frontend.
+> This is the authoritative specification for the HDIMS React frontend.
 > The backend (Pipeline A, Pipeline B, Product Layer) is fully built and tested.
 > The frontend consumes the backend API — it does not contain any business logic.
 > You are a coding agent. Follow every rule in this section strictly.
@@ -106,7 +106,7 @@ Realtime:      Polling (P1: RealtimeProvider abstraction; WebSocket-ready)
 ### Mandatory Folder Structure
 
 ```
-hdmis/frontend/
+HDIMS/frontend/
 │
 ├── public/
 │   └── favicon.ico
@@ -1998,7 +1998,7 @@ interface UploadDropzoneProps {
 ```
 TASK: Initialize the React frontend project ONLY
 
-From inside hdmis/frontend/:
+From inside HDIMS/frontend/:
 
 1. npm create vite@latest . -- --template react-ts
 

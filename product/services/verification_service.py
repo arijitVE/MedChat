@@ -45,6 +45,15 @@ def _ensure_doctor_report_access(report, doctor_id, db: Session) -> None:
         raise HTTPException(status_code=403, detail="Doctor does not have access to this report")
 
 
+def _ensure_clinical_verifier_access(report, verifying_user: UserProfile, db: Session) -> None:
+    if verifying_user.role == "admin":
+        return
+    if verifying_user.role == "doctor":
+        _ensure_doctor_report_access(report, verifying_user.user_id, db)
+        return
+    raise HTTPException(status_code=403, detail="Unsupported verifier role")
+
+
 def _get_field(db: Session, job_id: str, field_name: str):
     field = db.execute(
         text(
@@ -282,7 +291,7 @@ def verify_field(
         {"report_id": report_id, "field_name": field_name},
     ).first()
     if locked is not None:
-        raise HTTPException(status_code=403, detail="Field is locked by doctor verification")
+        raise HTTPException(status_code=403, detail="Field is locked by final verification")
 
     if verifying_user.role == "patient":
         if str(verifying_user.user_id) != str(report["patient_id"]):
@@ -301,6 +310,8 @@ def verify_field(
             db,
         ):
             raise HTTPException(status_code=403, detail="Doctor does not have access to this patient")
+        is_final = True
+    elif verifying_user.role == "admin":
         is_final = True
     else:
         raise HTTPException(status_code=403, detail="Unsupported verifier role")
@@ -406,10 +417,10 @@ def edit_field_value(
     verifying_user: UserProfile,
     db: Session,
 ) -> VerificationResponse:
-    if verifying_user.role != "doctor":
-        raise HTTPException(status_code=403, detail="Only doctors can edit report fields")
+    if verifying_user.role not in ("doctor", "admin"):
+        raise HTTPException(status_code=403, detail="Only doctors or admins can edit report fields")
     report = _get_report(db, report_id)
-    _ensure_doctor_report_access(report, verifying_user.user_id, db)
+    _ensure_clinical_verifier_access(report, verifying_user, db)
 
     locked = db.execute(
         text(
@@ -460,7 +471,7 @@ def edit_field_value(
             )
             VALUES (
                 :report_id, :job_id, :field_name, :field_value,
-                :verified_by, 'doctor', 'edited',
+                :verified_by, :verifier_role, 'edited',
                 :edited_value, :edit_reason, FALSE, clock_timestamp()
             )
             RETURNING verification_id, report_id, job_id, field_name, field_value,
@@ -474,6 +485,7 @@ def edit_field_value(
             "field_name": field_name,
             "field_value": new_value,
             "verified_by": verifying_user.user_id,
+            "verifier_role": verifying_user.role,
             "edited_value": new_value,
             "edit_reason": body.edit_reason,
         },
@@ -512,10 +524,10 @@ def verify_report(
     verifying_user: UserProfile,
     db: Session,
 ) -> ReportVerificationResponse:
-    if verifying_user.role != "doctor":
-        raise HTTPException(status_code=403, detail="Only doctors can verify reports")
+    if verifying_user.role not in ("doctor", "admin"):
+        raise HTTPException(status_code=403, detail="Only doctors or admins can verify reports")
     report = _get_report(db, report_id)
-    _ensure_doctor_report_access(report, verifying_user.user_id, db)
+    _ensure_clinical_verifier_access(report, verifying_user, db)
 
     fields = db.execute(
         text(
@@ -554,7 +566,7 @@ def verify_report(
                 )
                 VALUES (
                     :report_id, :job_id, :field_name, :field_value,
-                    :verified_by, 'doctor', 'approved',
+                    :verified_by, :verifier_role, 'approved',
                     NULL, 'Report-level verification', TRUE, clock_timestamp()
                 )
                 """
@@ -565,6 +577,7 @@ def verify_report(
                 "field_name": field["name"],
                 "field_value": field["value"],
                 "verified_by": verifying_user.user_id,
+                "verifier_role": verifying_user.role,
             },
         )
 
@@ -583,7 +596,7 @@ def verify_report(
     _write_report_audit(
         db,
         verifying_user.user_id,
-        "doctor",
+        verifying_user.role,
         "VERIFY_REPORT",
         report_id,
         old_value=report["lifecycle_status"],
@@ -612,10 +625,10 @@ def unlock_report(
     verifying_user: UserProfile,
     db: Session,
 ) -> ReportVerificationResponse:
-    if verifying_user.role != "doctor":
-        raise HTTPException(status_code=403, detail="Only doctors can unlock reports")
+    if verifying_user.role not in ("doctor", "admin"):
+        raise HTTPException(status_code=403, detail="Only doctors or admins can unlock reports")
     report = _get_report(db, report_id)
-    _ensure_doctor_report_access(report, verifying_user.user_id, db)
+    _ensure_clinical_verifier_access(report, verifying_user, db)
 
     updated = db.execute(
         text(
@@ -643,7 +656,7 @@ def unlock_report(
     _write_report_audit(
         db,
         verifying_user.user_id,
-        "doctor",
+        verifying_user.role,
         "UNLOCK_REPORT",
         report_id,
         old_value=report["lifecycle_status"],

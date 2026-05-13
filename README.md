@@ -1,13 +1,13 @@
-# HDMIS - Healthcare Document Management and Intelligence System
+# HDIMS - Healthcare Document Management and Intelligence System
 
-HDMIS is a full-stack healthcare document platform for uploading medical reports, extracting structured clinical values through OCR and LLM processing, reviewing uncertain results through doctor human-in-the-loop workflows, and giving patients, doctors, and admins role-specific views of the same report lifecycle.
+HDIMS is a full-stack healthcare document platform for uploading medical reports, extracting structured clinical values through OCR and LLM processing, reviewing uncertain results through doctor human-in-the-loop workflows, and giving patients, doctors, and admins role-specific views of the same report lifecycle.
 
 The project is built as an academic/product prototype with real product-layer APIs, a React frontend, PostgreSQL persistence, async document processing, and AI-assisted retrieval and analytics.
 
 ## Table of Contents
 
 - [Purpose](#purpose)
-- [What HDMIS Solves](#what-hdmis-solves)
+- [What HDIMS Solves](#what-HDIMS-solves)
 - [System at a Glance](#system-at-a-glance)
 - [Technology Stack](#technology-stack)
 - [Repository Structure](#repository-structure)
@@ -40,7 +40,7 @@ The project is built as an academic/product prototype with real product-layer AP
 
 ## Purpose
 
-Medical documents are often uploaded as PDFs or images and are difficult to search, compare, review, or analyze over time. HDMIS converts those unstructured documents into structured, patient-scoped medical data.
+Medical documents are often uploaded as PDFs or images and are difficult to search, compare, review, or analyze over time. HDIMS converts those unstructured documents into structured, patient-scoped medical data.
 
 The system is designed around four goals:
 
@@ -49,9 +49,9 @@ The system is designed around four goals:
 3. Help admins manage users, doctor verification, assignments, failed jobs, audit logs, and platform health.
 4. Keep every sensitive workflow role-protected, traceable, and grounded in stored data.
 
-## What HDMIS Solves
+## What HDIMS Solves
 
-HDMIS is meant to solve these problems:
+HDIMS is meant to solve these problems:
 
 - Patients lose track of historical reports.
 - Doctors spend time manually reading repeated values from scanned reports.
@@ -60,7 +60,7 @@ HDMIS is meant to solve these problems:
 - AI chat should not hallucinate stored medical values.
 - Admins need operational control over users, doctors, reports, failed jobs, and system health.
 
-HDMIS therefore separates:
+HDIMS therefore separates:
 
 - File upload and storage.
 - OCR and extraction.
@@ -137,7 +137,7 @@ The legacy direct Pipeline B routes under `/api/patient` and `/api/doctor` are s
 ## Repository Structure
 
 ```text
-hdmis/
+HDIMS/
 |-- frontend/
 |   |-- package.json
 |   `-- src/
@@ -271,7 +271,7 @@ Assignments link doctors and patients. They determine whether a doctor can acces
 
 ### HITL
 
-HITL means human-in-the-loop. In HDMIS, this is the doctor review layer used when automatic extraction is not sufficiently reliable or when manual verification is required.
+HITL means human-in-the-loop. In HDIMS, this is the doctor review layer used when automatic extraction is not sufficiently reliable or when manual verification is required.
 
 ## User Roles
 
@@ -1016,7 +1016,7 @@ PUT /admin/doctors/{doctor_id}/suspend
 
 ## Report Naming
 
-Uploaded local filenames are not ideal for clinical UI. HDMIS generates a display report name from:
+Uploaded local filenames are not ideal for clinical UI. HDIMS generates a display report name from:
 
 - patient name
 - report type
@@ -1342,7 +1342,7 @@ Important variables:
 OPENAI_API_KEY=your-openai-api-key
 GOOGLE_APPLICATION_CREDENTIALS=/absolute/path/to/google-service-account.json
 
-DATABASE_URL=postgresql://hdmis_user:hdmis_pass@localhost:5432/hdmis
+DATABASE_URL=postgresql://HDIMS_user:HDIMS_pass@localhost:5432/HDIMS
 REDIS_URL=redis://localhost:6379/0
 
 SECRET_KEY=replace-with-a-long-random-secret-at-least-32-characters
@@ -1382,7 +1382,7 @@ cp .env.example .env
 Create the database:
 
 ```bash
-createdb hdmis
+createdb HDIMS
 ```
 
 Apply migrations:
@@ -1449,7 +1449,7 @@ python seed_admin.py
 The current seed script creates:
 
 ```text
-Email:    admin@hdmis.com
+Email:    admin@HDIMS.com
 Password: Admin@123
 Name:     System Admin
 ```
@@ -1626,6 +1626,6 @@ Possible future improvements:
 
 ## Current Status
 
-HDMIS currently includes patient, doctor, and admin frontend flows; product-layer FastAPI routes; JWT authentication; report upload and reupload; OCR/LLM processing; structured field extraction; report-level doctor verification; analytics visualization; guided patient chat; floating doctor assistant; notifications; assignments; audit logs; and admin governance screens.
+HDIMS currently includes patient, doctor, and admin frontend flows; product-layer FastAPI routes; JWT authentication; report upload and reupload; OCR/LLM processing; structured field extraction; report-level doctor verification; analytics visualization; guided patient chat; floating doctor assistant; notifications; assignments; audit logs; and admin governance screens.
 
 It is suitable as an academic/product prototype and a strong base for a secure healthcare document intelligence system, but production deployment needs hardened security, privacy review, clinical validation, operational monitoring, and formal compliance work.

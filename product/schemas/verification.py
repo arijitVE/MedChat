@@ -31,7 +31,7 @@ class VerificationResponse(BaseModel):
     field_name: str
     field_value: str | None = None
     verified_by: UUID
-    verifier_role: Literal["patient", "doctor"]
+    verifier_role: Literal["patient", "doctor", "admin"]
     verification_type: Literal["approved", "edited", "rejected"]
     edited_value: str | None = None
     edit_reason: str | None = None

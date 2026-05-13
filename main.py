@@ -30,7 +30,7 @@ from product.api.user_routes import router as product_user_router
 
 
 app = FastAPI(
-    title="HDMIS API",
+    title="HDIMS API",
     description="Healthcare Document Management & Intelligence System",
     version="0.1.0",
 )

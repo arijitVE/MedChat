@@ -4,13 +4,13 @@ services:
   db:
     image: postgres:15-alpine
     environment:
-      POSTGRES_USER: hdmis
-      POSTGRES_PASSWORD: hdmis_password
-      POSTGRES_DB: hdmis
+      POSTGRES_USER: HDIMS
+      POSTGRES_PASSWORD: HDIMS_password
+      POSTGRES_DB: HDIMS
     ports:
       - "5432:5432"
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U hdmis"]
+      test: ["CMD-SHELL", "pg_isready -U HDIMS"]
       interval: 5s
       timeout: 5s
       retries: 5
@@ -32,7 +32,7 @@ services:
     ports:
       - "8000:8000"
     environment:
-      DATABASE_URL: postgresql://hdmis:hdmis_password@db:5432/hdmis
+      DATABASE_URL: postgresql://HDIMS:HDIMS_password@db:5432/HDIMS
       REDIS_URL: redis://redis:6379/0
     depends_on:
       db:
@@ -46,7 +46,7 @@ services:
       context: ../../
       dockerfile: infra/docker/Dockerfile
     environment:
-      DATABASE_URL: postgresql://hdmis:hdmis_password@db:5432/hdmis
+      DATABASE_URL: postgresql://HDIMS:HDIMS_password@db:5432/HDIMS
       REDIS_URL: redis://redis:6379/0
     depends_on:
       db:

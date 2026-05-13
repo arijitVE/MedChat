@@ -743,7 +743,7 @@ export function DoctorFloatingAssistant() {
                 <Bot className="h-4 w-4" aria-hidden="true" />
               </span>
               <div>
-                <h2 className="text-sm font-semibold text-clinical-text-primary">HDMIS AI Clinical Assistant</h2>
+                <h2 className="text-sm font-semibold text-clinical-text-primary">HDIMS AI Clinical Assistant</h2>
                 <p className="text-xs text-clinical-text-secondary">{activeContextLabel}</p>
               </div>
             </div>
@@ -777,7 +777,7 @@ export function DoctorFloatingAssistant() {
         <AssistantBubble>
           <div className="space-y-1">
             <p className="font-semibold">Hello Doctor 👋</p>
-            <p>I&apos;m your HDMIS AI Clinical Assistant. Choose how you would like to continue.</p>
+            <p>I&apos;m your HDIMS AI Clinical Assistant. Choose how you would like to continue.</p>
           </div>
         </AssistantBubble>
 

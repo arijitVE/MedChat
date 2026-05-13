@@ -5,7 +5,7 @@ Verifies the entire pipeline from file read → Pipeline A → lifecycle update 
 using the service layer directly (no HTTP, no Celery, no Redis).
 
 Run:
-    cd hdmis && venvHdmis/bin/python tests/product/test_upload_flow.py
+    cd HDIMS && venvHDIMS/bin/python tests/product/test_upload_flow.py
 """
 
 import hashlib
@@ -148,7 +148,7 @@ def test_full_upload_flow():
 
         client = get_client()
         count = client.count(COLLECTIONS["fields"]).count
-        print(f"✅ Step 6: Qdrant hdmis_fields has {count} vectors total")
+        print(f"✅ Step 6: Qdrant HDIMS_fields has {count} vectors total")
     except Exception as exc:
         print(f"⚠️  Step 6: Qdrant check skipped — {exc}")
 

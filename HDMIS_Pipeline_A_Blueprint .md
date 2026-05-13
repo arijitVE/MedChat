@@ -1,11 +1,11 @@
-# HDMIS Pipeline A — Implementation Blueprint
+# HDIMS Pipeline A — Implementation Blueprint
 ### Consensus-Based Medical Document Extraction Pipeline
 
 ---
 
 ## AGENT INSTRUCTIONS — READ BEFORE WRITING ANY CODE
 
-> This document is the authoritative specification for Pipeline A of the HDMIS system.
+> This document is the authoritative specification for Pipeline A of the HDIMS system.
 > You are a coding agent. Before generating any file, internalize and strictly follow
 > every rule in this section. Do not deviate from the folder structure, file names,
 > or code patterns defined here.
@@ -17,7 +17,7 @@ do not collapse modules into each other, do not rename files. If a file is not l
 ask before creating it.
 
 ```
-hdmis/
+HDIMS/
 │
 ├── shared/
 │   ├── config.py              → Centralized configuration (env-based, cached singleton)

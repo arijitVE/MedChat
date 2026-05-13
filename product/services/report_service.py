@@ -132,17 +132,30 @@ def _get_report_row(report_id: str | UUID, db: Session):
     row = db.execute(
         text(
             """
-            SELECT report_id, job_id, patient_id, uploaded_by, doctor_id,
+            SELECT r.report_id, r.job_id, r.patient_id, r.uploaded_by, r.doctor_id,
                    file_path, file_name, file_mime, file_size_bytes,
                    upload_document_type, inferred_document_type,
                    lifecycle_status, released_to_patient, first_uploaded_at,
                    last_edited_at, upload_count, file_hash, is_duplicate,
                    duplicate_of,
                    u.full_name AS patient_name,
-                   u.patient_uid AS patient_uid
+                   u.patient_uid AS patient_uid,
+                   d.full_name AS doctor_name,
+                   assigned.doctor_id AS assigned_doctor_id,
+                   assigned.doctor_name AS assigned_doctor_name
             FROM reports r
             LEFT JOIN users u ON u.user_id = r.patient_id
-            WHERE report_id = :report_id
+            LEFT JOIN users d ON d.user_id = r.doctor_id
+            LEFT JOIN LATERAL (
+                SELECT a.doctor_id, ad.full_name AS doctor_name
+                FROM doctor_patient_assignments a
+                JOIN users ad ON ad.user_id = a.doctor_id
+                WHERE a.patient_id = r.patient_id
+                  AND a.status = 'active'
+                ORDER BY a.updated_at DESC NULLS LAST, a.created_at DESC
+                LIMIT 1
+            ) assigned ON TRUE
+            WHERE r.report_id = :report_id
             """
         ),
         {"report_id": report_id},
@@ -267,6 +280,22 @@ def get_report_for_doctor(
     }
 
 
+def get_report_for_admin(
+    report_id: str | UUID,
+    db: Session,
+) -> dict:
+    report = _get_report_row(report_id, db)
+    fields = verification_service.get_field_verification_status(
+        str(report_id),
+        db,
+        requesting_user_role="admin",
+    )
+    return {
+        "report": _report_response(report),
+        "fields": fields,
+    }
+
+
 def search_reports_for_doctor(
     doctor_id: str | UUID,
     db: Session,
@@ -321,6 +350,21 @@ def get_raw_report_file_for_doctor(
     if not _doctor_can_access_report(doctor_id, report, db):
         raise HTTPException(status_code=403, detail="Doctor does not have access to this report")
     _write_audit(db, doctor_id, "doctor", "VIEW_RAW_REPORT", report_id)
+    db.commit()
+    return {
+        "path": report["file_path"],
+        "filename": report["file_name"],
+        "media_type": report["file_mime"],
+    }
+
+
+def get_raw_report_file_for_admin(
+    report_id: str | UUID,
+    admin_id: str | UUID,
+    db: Session,
+) -> dict:
+    report = _get_report_row(report_id, db)
+    _write_audit(db, admin_id, "admin", "VIEW_RAW_REPORT", report_id)
     db.commit()
     return {
         "path": report["file_path"],

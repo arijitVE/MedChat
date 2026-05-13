@@ -9,7 +9,7 @@ from sqlalchemy import text
 import bcrypt
 import uuid
 
-ADMIN_EMAIL = "admin@hdmis.com"
+ADMIN_EMAIL = "admin@HDIMS.com"
 ADMIN_PASSWORD = "Admin@123"
 ADMIN_NAME = "System Admin"
 

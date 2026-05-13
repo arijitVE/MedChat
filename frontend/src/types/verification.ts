@@ -5,7 +5,7 @@ export interface FieldVerification {
   field_name: string;
   field_value: string | null;
   edited_value: string | null;
-  verifier_role: 'doctor' | 'patient';
+  verifier_role: 'doctor' | 'patient' | 'admin';
   verification_type: VerificationType;
   is_final: boolean;
   verified_at: string;

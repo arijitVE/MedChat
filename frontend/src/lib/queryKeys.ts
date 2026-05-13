@@ -33,6 +33,8 @@ export const queryKeys = {
     patients: (filters?: object) => ['admin', 'patients', filters] as const,
     assignments: (filters?: object) => ['admin', 'assignments', filters] as const,
     reports: (filters?: object) => ['admin', 'reports', filters] as const,
+    reportDetail: (id: string) => ['admin', 'reports', id] as const,
+    reportFields: (id: string) => ['admin', 'reports', id, 'fields'] as const,
     failedJobs: (filters?: object) => ['admin', 'failed-jobs', filters] as const,
     hitlQueue: ['admin', 'hitl'] as const,
     analytics: ['admin', 'analytics'] as const,

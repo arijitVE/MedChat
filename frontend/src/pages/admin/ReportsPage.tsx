@@ -1,6 +1,8 @@
 import { useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
+import { useNavigate } from 'react-router-dom';
 import { adminApi } from '../../api/admin';
+import { Button } from '../../components/ui/Button';
 import { Pagination } from '../../components/ui/Pagination';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../../components/ui/Table';
 import { queryKeys, staleTime } from '../../lib/queryKeys';
@@ -12,6 +14,7 @@ const pageSize = 20;
 const statuses = ['', 'uploaded', 'processing', 'auto_approved', 'hitl_required', 'fully_verified', 'failed'];
 
 export default function ReportsPage() {
+  const navigate = useNavigate();
   const [page, setPage] = useState(1);
   const [status, setStatus] = useState('');
   const filters = useMemo(() => ({ page, page_size: pageSize, status: status || undefined }), [page, status]);
@@ -55,11 +58,16 @@ export default function ReportsPage() {
               <TableHead>Type</TableHead>
               <TableHead>Released</TableHead>
               <TableHead>Uploaded</TableHead>
+              <TableHead className="text-right">Action</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {(reports.data?.items ?? []).map((report) => (
-              <TableRow key={report.report_id}>
+              <TableRow
+                key={report.report_id}
+                className="cursor-pointer"
+                onClick={() => navigate(`/admin/reports/${report.report_id}`)}
+              >
                 <TableCell className="font-medium">{sanitizeFilename(report.file_name)}</TableCell>
                 <TableCell>{report.patient_name ?? report.patient_id}</TableCell>
                 <TableCell>{report.doctor_name ?? report.doctor_id ?? '-'}</TableCell>
@@ -67,6 +75,18 @@ export default function ReportsPage() {
                 <TableCell>{report.inferred_document_type ?? report.upload_document_type}</TableCell>
                 <TableCell>{report.released_to_patient ? 'Yes' : 'No'}</TableCell>
                 <TableCell>{formatDate(report.first_uploaded_at)}</TableCell>
+                <TableCell className="text-right">
+                  <Button
+                    variant="secondary"
+                    className="min-h-8 px-3 py-1"
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      navigate(`/admin/reports/${report.report_id}`);
+                    }}
+                  >
+                    Open
+                  </Button>
+                </TableCell>
               </TableRow>
             ))}
           </TableBody>

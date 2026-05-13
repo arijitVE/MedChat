@@ -1,4 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { adminApi } from '../api/admin';
 import { reportsApi } from '../api/reports';
 import { normalizeApiError } from '../lib/apiError';
 import { queryKeys, staleTime } from '../lib/queryKeys';
@@ -38,6 +39,26 @@ export function useReportDetail(reportId: string) {
     queryFn: async () => {
       try {
         const response = await reportsApi.getReport(reportId);
+        return response.data;
+      } catch (error) {
+        throw normalizeApiError(error);
+      }
+    },
+    enabled: Boolean(reportId),
+    staleTime: staleTime.reportDetail,
+    refetchInterval: (query) => {
+      const status = query.state.data?.report.lifecycle_status;
+      return status === 'processing' || status === 'uploaded' ? 8000 : false;
+    },
+  });
+}
+
+export function useAdminReportDetail(reportId: string) {
+  return useQuery({
+    queryKey: queryKeys.admin.reportDetail(reportId),
+    queryFn: async () => {
+      try {
+        const response = await adminApi.getReport(reportId);
         return response.data;
       } catch (error) {
         throw normalizeApiError(error);
@@ -181,6 +202,21 @@ export function useOpenDoctorRawReport() {
     mutationFn: async (reportId) => {
       try {
         const response = await reportsApi.getDoctorRawReport(reportId);
+        const url = URL.createObjectURL(response.data);
+        window.open(url, '_blank', 'noopener,noreferrer');
+        window.setTimeout(() => URL.revokeObjectURL(url), 60_000);
+      } catch (error) {
+        throw normalizeApiError(error);
+      }
+    },
+  });
+}
+
+export function useOpenAdminRawReport() {
+  return useMutation<void, ApiError, string>({
+    mutationFn: async (reportId) => {
+      try {
+        const response = await adminApi.getRawReport(reportId);
         const url = URL.createObjectURL(response.data);
         window.open(url, '_blank', 'noopener,noreferrer');
         window.setTimeout(() => URL.revokeObjectURL(url), 60_000);

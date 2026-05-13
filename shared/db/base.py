@@ -5,7 +5,7 @@ from sqlalchemy.orm import DeclarativeBase, MappedAsDataclass
 
 
 class Base(DeclarativeBase):
-    """SQLAlchemy 2.x declarative base for all HDMIS ORM models.
+    """SQLAlchemy 2.x declarative base for all HDIMS ORM models.
 
     All models should inherit from this class. The metadata registry is
     shared across all models so that Base.metadata.create_all() creates

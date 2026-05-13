@@ -181,7 +181,7 @@ export default function PatientChatPage() {
             <div className="space-y-1">
               <p className="flex items-center gap-2 font-semibold">
                 <Bot className="h-4 w-4 text-clinical-primary" aria-hidden="true" />
-                Hello, I&apos;m your HDMIS Health Assistant.
+                Hello, I&apos;m your HDIMS Health Assistant.
               </p>
               <p>Choose how you would like to continue.</p>
             </div>

@@ -78,7 +78,7 @@ export function Sidebar() {
   return (
     <aside className="fixed inset-y-0 left-0 z-30 w-64 border-r border-clinical-border bg-clinical-surface">
       <div className="flex h-14 items-center border-b border-clinical-border px-6">
-        <span className="text-sm font-semibold text-clinical-text-primary">HDMIS</span>
+        <span className="text-sm font-semibold text-clinical-text-primary">HDIMS</span>
       </div>
       <nav className="space-y-1 p-3" aria-label="Primary navigation">
         {links.map((link) => {
