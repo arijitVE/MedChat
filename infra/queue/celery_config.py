@@ -5,7 +5,7 @@ from shared.config import get_settings
 settings = get_settings()
 
 celery_app = Celery(
-    "HDIMS_worker",
+    "HDMIS_worker",
     broker=settings.REDIS_URL,
     backend=settings.REDIS_URL,
     include=["pipeline_a.worker.tasks"]

@@ -1342,7 +1342,7 @@ Important variables:
 OPENAI_API_KEY=your-openai-api-key
 GOOGLE_APPLICATION_CREDENTIALS=/absolute/path/to/google-service-account.json
 
-DATABASE_URL=postgresql://HDIMS_user:HDIMS_pass@localhost:5432/HDIMS
+DATABASE_URL=postgresql://hdmis_user:hdmis_pass@localhost:5432/hdmis
 REDIS_URL=redis://localhost:6379/0
 
 SECRET_KEY=replace-with-a-long-random-secret-at-least-32-characters
@@ -1382,7 +1382,7 @@ cp .env.example .env
 Create the database:
 
 ```bash
-createdb HDIMS
+createdb hdmis
 ```
 
 Apply migrations:

@@ -468,7 +468,7 @@ def get_latest_record(patient_id: str, db: Session) -> PatientRecord | None:
 ## 4. Qdrant Schema (Fixed — Never Change)
 
 ```python
-# Every point stored in HDIMS_fields must have this exact payload structure.
+# Every point stored in HDMIS_fields must have this exact payload structure.
 # Source_type field enables Phase 3 PubMed chunks in the same collection.
 
 FIELD_CHUNK_PAYLOAD = {
@@ -506,8 +506,8 @@ FIELD_CHUNK_PAYLOAD = {
 ```
 
 Collections:
-- `HDIMS_fields` — one vector per field per document
-- `HDIMS_documents` — one vector per full document (structured_text)
+- `HDMIS_fields` — one vector per field per document
+- `HDMIS_documents` — one vector per full document (structured_text)
 
 ---
 
@@ -769,7 +769,7 @@ from qdrant_client.models import (
 )
 from shared.config import get_settings
 
-COLLECTIONS = {"fields": "HDIMS_fields", "documents": "HDIMS_documents"}
+COLLECTIONS = {"fields": "HDMIS_fields", "documents": "HDMIS_documents"}
 VECTOR_SIZE = 384
 
 def get_client() -> QdrantClient:
@@ -813,13 +813,13 @@ def search_fields(
 ) -> list:
     """
     Build Filter from non-None params.
-    search HDIMS_fields.
+    search HDMIS_fields.
     Return top_k ScoredPoint results.
     """
 
 def get_patient_field_history(patient_id: str, field_name: str) -> list[dict]:
     """
-    Scroll HDIMS_fields (not search — we want ALL records not just similar).
+    Scroll HDMIS_fields (not search — we want ALL records not just similar).
     Filter: patient_id == patient_id AND field_name == field_name
     Order by collection_date ASC (in Python after scroll).
     Return list of payload dicts.
@@ -871,8 +871,8 @@ def ingest_patient_record(patient_id: str, job_id: str, db):
     field_vecs = vectors[:len(field_chunks)]
     doc_vecs = vectors[len(field_chunks):]
 
-    upsert_chunks(field_chunks, field_vecs, "HDIMS_fields")
-    upsert_chunks(doc_chunks, doc_vecs, "HDIMS_documents")
+    upsert_chunks(field_chunks, field_vecs, "HDMIS_fields")
+    upsert_chunks(doc_chunks, doc_vecs, "HDMIS_documents")
 
     invalidate_patient(patient_id)    # clear stale cache
 
@@ -1126,7 +1126,7 @@ def retrieve_by_filter(parsed: ParsedFilter) -> list[dict]:
 def retrieve_semantic(query: str, top_k: int = 10,
                       patient_id: str | None = None) -> list[dict]:
     """
-    Embed query → search HDIMS_fields.
+    Embed query → search HDMIS_fields.
     Apply patient_id filter if provided.
     Return list of payload dicts.
     Log: retrieval_type=semantic, result_count, top_score

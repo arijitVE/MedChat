@@ -148,7 +148,7 @@ def test_full_upload_flow():
 
         client = get_client()
         count = client.count(COLLECTIONS["fields"]).count
-        print(f"✅ Step 6: Qdrant HDIMS_fields has {count} vectors total")
+        print(f"✅ Step 6: Qdrant HDMIS_fields has {count} vectors total")
     except Exception as exc:
         print(f"⚠️  Step 6: Qdrant check skipped — {exc}")
 

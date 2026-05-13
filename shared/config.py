@@ -22,7 +22,7 @@ class Settings(BaseSettings):
     GOOGLE_APPLICATION_CREDENTIALS: str = ""
 
     # --- Database ---
-    DATABASE_URL: str = "postgresql://HDIMS_user:HDIMS_pass@localhost:5432/HDIMS_db"
+    DATABASE_URL: str = "postgresql://hdmis_user:hdmis_pass@localhost:5432/hdmis_db"
 
     # --- Product Layer Auth ---
     SECRET_KEY: str = "change-me-minimum-32-characters-secret"

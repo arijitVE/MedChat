@@ -15,7 +15,7 @@ from pipeline_b.chunking.chunker import QdrantChunk
 from shared.config import get_settings
 
 
-COLLECTIONS = {"fields": "HDIMS_fields", "documents": "HDIMS_documents"}
+COLLECTIONS = {"fields": "HDMIS_fields", "documents": "HDMIS_documents"}
 VECTOR_SIZE = 384
 
 _client: QdrantClient | None = None
