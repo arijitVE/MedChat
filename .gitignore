@@ -90,3 +90,7 @@ Thumbs.db
 *.prof
 *.pid
 .cache/
+
+LongReport.pdf
+report.pdf
+newreport.jpeg
