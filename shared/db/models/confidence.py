@@ -6,10 +6,10 @@ from __future__ import annotations
 from typing import Any, Optional
 
 from sqlalchemy import Float, Integer, String, UniqueConstraint
-from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.orm import Mapped, Session, mapped_column
 
 from shared.db.base import Base
+from shared.db.upsert import build_upsert
 
 
 class ConfidenceBreakdown(Base):
@@ -86,7 +86,7 @@ class ConfidenceBreakdown(Base):
 def upsert_confidence_breakdown(db: Session, job_id: str, **fields: Any) -> None:
     """Upsert a confidence breakdown row keyed on (job_id, field_name).
 
-    Uses INSERT ... ON CONFLICT (job_id, field_name) DO UPDATE.
+    Uses a database-native upsert keyed on (job_id, field_name).
     """
     values = {"job_id": job_id, **fields}
     update_values = {
@@ -94,13 +94,13 @@ def upsert_confidence_breakdown(db: Session, job_id: str, **fields: Any) -> None
         if k != "field_name"
     }
 
-    stmt = (
-        pg_insert(ConfidenceBreakdown)
-        .values(**values)
-        .on_conflict_do_update(
-            constraint="uq_confidence_breakdowns_job_id_field_name",
-            set_=update_values,
-        )
+    stmt = build_upsert(
+        db,
+        ConfidenceBreakdown,
+        values,
+        update_values,
+        index_elements=["job_id", "field_name"],
+        constraint="uq_confidence_breakdowns_job_id_field_name",
     )
     db.execute(stmt)
     db.flush()

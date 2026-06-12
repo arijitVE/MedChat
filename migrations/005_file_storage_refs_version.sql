@@ -1,2 +1,1 @@
-ALTER TABLE file_storage_refs
-    ADD COLUMN IF NOT EXISTS version INTEGER NOT NULL DEFAULT 1;
+-- Consolidated into 001_product_layer_schema.sql for MySQL.

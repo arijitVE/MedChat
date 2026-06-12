@@ -1,7 +1,7 @@
 """
 Shared fixtures for product layer tests.
 
-Uses a REAL PostgreSQL database (same as the dev DB configured via DATABASE_URL).
+Uses a REAL MySQL database (same as the dev DB configured via DATABASE_URL).
 Each test function gets its own transaction that is rolled back after the test,
 so no data leaks between tests.
 
@@ -173,7 +173,7 @@ def make_report(db: Session):
                     :job_id, :patient_id, :document_type, :file_name, 'uploaded',
                     FALSE, NOW(), 'system', CURRENT_DATE
                 )
-                ON CONFLICT (job_id) DO NOTHING
+                ON DUPLICATE KEY UPDATE job_id = VALUES(job_id)
                 """
             ),
             {
@@ -251,14 +251,13 @@ def make_field(db: Session):
         confidence: float = 0.95,
         status: str = "auto",
     ) -> dict:
-        row = db.execute(
+        result = db.execute(
             text(
                 """
                 INSERT INTO report_fields (
                     job_id, patient_id, name, value, confidence, status
                 )
                 VALUES (:job_id, :patient_id, :name, :value, :confidence, :status)
-                RETURNING id
                 """
             ),
             {
@@ -269,10 +268,11 @@ def make_field(db: Session):
                 "confidence": confidence,
                 "status": status,
             },
-        ).mappings().one()
+        )
         db.flush()
+        field_id = result.lastrowid
         return {
-            "id": row["id"],
+            "id": field_id,
             "job_id": job_id,
             "patient_id": patient_id,
             "field_name": field_name,
@@ -299,18 +299,18 @@ def make_assignment(db: Session):
         status: str = "active",
         assigned_by: str = "doctor",
     ) -> dict:
-        row = db.execute(
+        assignment_id = uuid.uuid4()
+        db.execute(
             text(
                 """
                 INSERT INTO doctor_patient_assignments (
-                    doctor_id, patient_id, assigned_by, status
+                    assignment_id, doctor_id, patient_id, assigned_by, status
                 )
-                VALUES (:doctor_id, :patient_id, :assigned_by, :status)
-                RETURNING assignment_id, doctor_id, patient_id, assigned_by,
-                          status, created_at, updated_at
+                VALUES (:assignment_id, :doctor_id, :patient_id, :assigned_by, :status)
                 """
             ),
             {
+                "assignment_id": assignment_id,
                 "doctor_id": doctor_id,
                 "patient_id": patient_id,
                 "assigned_by": assigned_by,
@@ -318,6 +318,17 @@ def make_assignment(db: Session):
             },
         ).mappings().one()
         db.flush()
+        row = db.execute(
+            text(
+                """
+                SELECT assignment_id, doctor_id, patient_id, assigned_by,
+                       status, created_at, updated_at
+                FROM doctor_patient_assignments
+                WHERE assignment_id = :assignment_id
+                """
+            ),
+            {"assignment_id": assignment_id},
+        ).mappings().one()
         return dict(row)
 
     return _make

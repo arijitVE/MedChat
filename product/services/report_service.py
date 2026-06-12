@@ -141,20 +141,19 @@ def _get_report_row(report_id: str | UUID, db: Session):
                    u.full_name AS patient_name,
                    u.patient_uid AS patient_uid,
                    d.full_name AS doctor_name,
-                   assigned.doctor_id AS assigned_doctor_id,
-                   assigned.doctor_name AS assigned_doctor_name
+                   assigned_doctor.user_id AS assigned_doctor_id,
+                   assigned_doctor.full_name AS assigned_doctor_name
             FROM reports r
             LEFT JOIN users u ON u.user_id = r.patient_id
             LEFT JOIN users d ON d.user_id = r.doctor_id
-            LEFT JOIN LATERAL (
-                SELECT a.doctor_id, ad.full_name AS doctor_name
+            LEFT JOIN users assigned_doctor ON assigned_doctor.user_id = (
+                SELECT a.doctor_id
                 FROM doctor_patient_assignments a
-                JOIN users ad ON ad.user_id = a.doctor_id
                 WHERE a.patient_id = r.patient_id
                   AND a.status = 'active'
-                ORDER BY a.updated_at DESC NULLS LAST, a.created_at DESC
+                ORDER BY a.updated_at IS NULL, a.updated_at DESC, a.created_at DESC
                 LIMIT 1
-            ) assigned ON TRUE
+            )
             WHERE r.report_id = :report_id
             """
         ),
@@ -215,23 +214,18 @@ def release_report_to_patient(
     if str(report["uploaded_by"]) != str(doctor_id):
         raise HTTPException(status_code=403, detail="Only the uploading doctor can release this report")
 
-    row = db.execute(
+    db.execute(
         text(
             """
             UPDATE reports
             SET released_to_patient = TRUE,
                 last_edited_at = NOW()
             WHERE report_id = :report_id
-            RETURNING report_id, job_id, patient_id, uploaded_by, doctor_id,
-                      file_path, file_name, file_mime, file_size_bytes,
-                      upload_document_type, inferred_document_type,
-                      lifecycle_status, released_to_patient, first_uploaded_at,
-                      last_edited_at, upload_count, file_hash, is_duplicate,
-                      duplicate_of
             """
         ),
         {"report_id": report_id},
-    ).mappings().one()
+    )
+    row = _get_report_row(report_id, db)
 
     _write_audit(db, doctor_id, "doctor", "RELEASE_REPORT", report_id)
     notification_service.notify_report_released(row["patient_id"], row["report_id"], db)
@@ -330,9 +324,9 @@ def search_reports_for_doctor(
     if query is not None:
         sql += """
             AND (
-                r.file_name ILIKE :query
-                OR r.inferred_document_type ILIKE :query
-                OR r.upload_document_type ILIKE :query
+                LOWER(r.file_name) LIKE LOWER(:query)
+                OR LOWER(r.inferred_document_type) LIKE LOWER(:query)
+                OR LOWER(r.upload_document_type) LIKE LOWER(:query)
             )
         """
         params["query"] = f"%{query}%"
@@ -393,7 +387,7 @@ def get_patient_sql_analytics(
                        COALESCE(
                            rf.numeric_value,
                            CASE
-                               WHEN REPLACE(TRIM(rf.value), ',', '') ~ '^-?[0-9]+([.][0-9]+)?$'
+                               WHEN REPLACE(TRIM(rf.value), ',', '') REGEXP '^-?[0-9]+([.][0-9]+)?$'
                                THEN CAST(REPLACE(TRIM(rf.value), ',', '') AS FLOAT)
                                ELSE NULL
                            END
@@ -409,14 +403,15 @@ def get_patient_sql_analytics(
                        r.first_uploaded_at,
                        r.last_edited_at,
                        r.is_duplicate,
-                       COALESCE(NULLIF(rf.collection_date, ''), r.first_uploaded_at::date::text) AS raw_report_date,
+                       COALESCE(NULLIF(rf.collection_date, ''), DATE(r.first_uploaded_at)) AS raw_report_date,
                        ROW_NUMBER() OVER (
                            PARTITION BY r.patient_id,
-                                        COALESCE(NULLIF(rf.collection_date, ''), r.first_uploaded_at::date::text),
+                                        COALESCE(NULLIF(rf.collection_date, ''), DATE(r.first_uploaded_at)),
                                         rf.name,
                                         r.report_id
                            ORDER BY r.is_duplicate ASC,
-                                    r.last_edited_at DESC NULLS LAST,
+                                    r.last_edited_at IS NULL,
+                                    r.last_edited_at DESC,
                                     r.first_uploaded_at DESC
                        ) AS rn
                 FROM report_fields rf
@@ -425,7 +420,7 @@ def get_patient_sql_analytics(
                   AND COALESCE(
                       rf.numeric_value,
                       CASE
-                          WHEN REPLACE(TRIM(rf.value), ',', '') ~ '^-?[0-9]+([.][0-9]+)?$'
+                          WHEN REPLACE(TRIM(rf.value), ',', '') REGEXP '^-?[0-9]+([.][0-9]+)?$'
                           THEN CAST(REPLACE(TRIM(rf.value), ',', '') AS FLOAT)
                           ELSE NULL
                       END

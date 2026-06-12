@@ -55,9 +55,9 @@ def search_patients_for_doctor(
               AND a.status = 'active'
               AND u.role = 'patient'
               AND (
-                  u.full_name ILIKE :query
-                  OR u.patient_uid ILIKE :query
-                  OR u.email ILIKE :query
+                  LOWER(u.full_name) LIKE LOWER(:query)
+                  OR LOWER(u.patient_uid) LIKE LOWER(:query)
+                  OR LOWER(u.email) LIKE LOWER(:query)
               )
             ORDER BY u.full_name ASC
             LIMIT 20
@@ -96,10 +96,10 @@ def search_reports_for_patient(
     params: dict[str, object] = {"patient_id": patient_id}
 
     if date_from is not None:
-        sql += " AND r.first_uploaded_at::date >= CAST(:date_from AS DATE)"
+        sql += " AND DATE(r.first_uploaded_at) >= CAST(:date_from AS DATE)"
         params["date_from"] = date_from
     if date_to is not None:
-        sql += " AND r.first_uploaded_at::date <= CAST(:date_to AS DATE)"
+        sql += " AND DATE(r.first_uploaded_at) <= CAST(:date_to AS DATE)"
         params["date_to"] = date_to
     if document_type is not None:
         sql += """
@@ -115,11 +115,11 @@ def search_reports_for_patient(
     if query is not None:
         sql += """
             AND (
-                r.file_name ILIKE :query
-                OR r.inferred_document_type ILIKE :query
-                OR r.upload_document_type ILIKE :query
-                OR u.full_name ILIKE :query
-                OR u.patient_uid ILIKE :query
+                LOWER(r.file_name) LIKE LOWER(:query)
+                OR LOWER(r.inferred_document_type) LIKE LOWER(:query)
+                OR LOWER(r.upload_document_type) LIKE LOWER(:query)
+                OR LOWER(u.full_name) LIKE LOWER(:query)
+                OR LOWER(u.patient_uid) LIKE LOWER(:query)
             )
         """
         params["query"] = f"%{query}%"

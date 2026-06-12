@@ -7,10 +7,10 @@ from __future__ import annotations
 from typing import Any, Optional
 
 from sqlalchemy import Boolean, Float, JSON, String, Text, UniqueConstraint
-from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.orm import Mapped, Session, mapped_column
 
 from shared.db.base import Base
+from shared.db.upsert import build_upsert
 
 
 class OCROutput(Base):
@@ -75,18 +75,11 @@ class OCROutput(Base):
 def upsert_ocr_output(db: Session, job_id: str, **fields: Any) -> None:
     """Upsert an OCR output row keyed on job_id.
 
-    Uses INSERT ... ON CONFLICT (job_id) DO UPDATE.
+    Uses a database-native upsert keyed on job_id.
     """
     values = {"job_id": job_id, **fields}
     update_values = {k: v for k, v in fields.items()}
 
-    stmt = (
-        pg_insert(OCROutput)
-        .values(**values)
-        .on_conflict_do_update(
-            index_elements=["job_id"],
-            set_=update_values,
-        )
-    )
+    stmt = build_upsert(db, OCROutput, values, update_values, index_elements=["job_id"])
     db.execute(stmt)
     db.flush()

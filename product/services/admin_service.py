@@ -68,20 +68,23 @@ def reset_user_password(
     admin_id: str | UUID,
     db: Session,
 ) -> None:
-    row = db.execute(
+    db.execute(
         text(
             """
             UPDATE users
             SET password_hash = :password_hash,
                 updated_at = NOW()
             WHERE user_id = :user_id
-            RETURNING user_id, role
             """
         ),
         {
             "user_id": user_id,
             "password_hash": hash_password(new_password),
         },
+    )
+    row = db.execute(
+        text("SELECT user_id, role FROM users WHERE user_id = :user_id"),
+        {"user_id": user_id},
     ).mappings().first()
     if row is None:
         raise HTTPException(status_code=404, detail="User not found")
@@ -228,7 +231,8 @@ def list_failed_jobs(db: Session, page: int = 1, page_size: int = 20) -> dict:
             WHERE LOWER(dj.status) = 'failed'
                OR dj.error_message IS NOT NULL
                OR r.lifecycle_status = 'failed'
-            ORDER BY COALESCE(dj.processed_at, dj.uploaded_at) DESC NULLS LAST
+            ORDER BY COALESCE(dj.processed_at, dj.uploaded_at) IS NULL,
+                     COALESCE(dj.processed_at, dj.uploaded_at) DESC
             LIMIT :limit OFFSET :offset
             """
         ),
@@ -374,26 +378,35 @@ def set_user_active(
     admin_id: str | UUID,
     db: Session,
 ) -> dict:
-    row = db.execute(
+    db.execute(
         text(
             """
             UPDATE users
             SET is_active = :is_active,
                 updated_at = NOW()
             WHERE user_id = :user_id
-            RETURNING user_id, email, role, full_name, phone, age, gender,
-                      blood_group, allergies, chronic_conditions, address,
-                      emergency_contact, last_login, license_number,
-                      specialization, hospital_name, years_of_experience,
-                      department, profile_photo, verification_status,
-                      verification_rejection_reason, patient_uid, date_of_birth, sex,
-                      is_registered, is_active, created_at, updated_at
             """
         ),
         {
             "user_id": user_id,
             "is_active": is_active,
         },
+    )
+    row = db.execute(
+        text(
+            """
+            SELECT user_id, email, role, full_name, phone, age, gender,
+                   blood_group, allergies, chronic_conditions, address,
+                   emergency_contact, last_login, license_number,
+                   specialization, hospital_name, years_of_experience,
+                   department, profile_photo, verification_status,
+                   verification_rejection_reason, patient_uid, date_of_birth, sex,
+                   is_registered, is_active, created_at, updated_at
+            FROM users
+            WHERE user_id = :user_id
+            """
+        ),
+        {"user_id": user_id},
     ).mappings().first()
     if row is None:
         raise HTTPException(status_code=404, detail="User not found")
@@ -426,7 +439,7 @@ def set_doctor_verification_status(
     if verification_status not in {"pending_verification", "approved", "rejected", "suspended"}:
         raise HTTPException(status_code=400, detail="Invalid verification status")
 
-    row = db.execute(
+    db.execute(
         text(
             """
             UPDATE users
@@ -435,13 +448,6 @@ def set_doctor_verification_status(
                 updated_at = NOW()
             WHERE user_id = :doctor_id
               AND role = 'doctor'
-            RETURNING user_id, email, role, full_name, phone, age, gender,
-                      blood_group, allergies, chronic_conditions, address,
-                      emergency_contact, last_login, license_number,
-                      specialization, hospital_name, years_of_experience,
-                      department, profile_photo, verification_status,
-                      verification_rejection_reason, patient_uid, date_of_birth, sex,
-                      is_registered, is_active, created_at, updated_at
             """
         ),
         {
@@ -449,6 +455,23 @@ def set_doctor_verification_status(
             "verification_status": verification_status,
             "reason": reason,
         },
+    )
+    row = db.execute(
+        text(
+            """
+            SELECT user_id, email, role, full_name, phone, age, gender,
+                   blood_group, allergies, chronic_conditions, address,
+                   emergency_contact, last_login, license_number,
+                   specialization, hospital_name, years_of_experience,
+                   department, profile_photo, verification_status,
+                   verification_rejection_reason, patient_uid, date_of_birth, sex,
+                   is_registered, is_active, created_at, updated_at
+            FROM users
+            WHERE user_id = :doctor_id
+              AND role = 'doctor'
+            """
+        ),
+        {"doctor_id": doctor_id},
     ).mappings().first()
     if row is None:
         raise HTTPException(status_code=404, detail="Doctor not found")
@@ -457,7 +480,7 @@ def set_doctor_verification_status(
         text(
             """
             INSERT INTO audit_log (user_id, user_role, action, entity_type, entity_id, metadata)
-            VALUES (:user_id, 'admin', :action, 'user', :entity_id, CAST(:metadata AS JSONB))
+            VALUES (:user_id, 'admin', :action, 'user', :entity_id, :metadata)
             """
         ),
         {
@@ -486,7 +509,7 @@ def get_hitl_queue(db: Session) -> list[HITLQueueItem]:
             """
             SELECT r.report_id, r.job_id, r.patient_id, r.doctor_id,
                    r.file_name, r.lifecycle_status,
-                   COUNT(rf.id) FILTER (WHERE rf.status = 'hitl') AS hitl_count,
+                   SUM(CASE WHEN rf.status = 'hitl' THEN 1 ELSE 0 END) AS hitl_count,
                    r.first_uploaded_at
             FROM reports r
             LEFT JOIN report_fields rf ON rf.job_id = r.job_id

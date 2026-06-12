@@ -73,7 +73,7 @@ def _write_audit(
             )
             VALUES (
                 :user_id, :user_role, :action, :entity_type, :entity_id,
-                :report_id, CAST(:metadata AS JSONB)
+                :report_id, :metadata
             )
             """
         ),
@@ -221,27 +221,28 @@ def _resolve_doctor_upload_patient(
         return row["user_id"], row["patient_uid"]
 
     generated_uid = _generate_patient_uid(db)
-    created = db.execute(
+    user_id = str(uuid4())
+    db.execute(
         text(
             """
             INSERT INTO users (
-                email, password_hash, role, full_name, patient_uid,
+                user_id, email, password_hash, role, full_name, patient_uid,
                 is_registered, is_active
             )
             VALUES (
-                :email, '', 'patient', :full_name, :patient_uid,
+                :user_id, :email, '', 'patient', :full_name, :patient_uid,
                 FALSE, TRUE
             )
-            RETURNING user_id, patient_uid
             """
         ),
         {
+            "user_id": user_id,
             "email": patient_email,
             "full_name": patient_email,
             "patient_uid": generated_uid,
         },
-    ).mappings().one()
-    return created["user_id"], created["patient_uid"]
+    )
+    return user_id, generated_uid
 
 
 def _ensure_doctor_upload_assignment(db: Session, doctor_id, patient_id) -> None:
@@ -252,8 +253,7 @@ def _ensure_doctor_upload_assignment(db: Session, doctor_id, patient_id) -> None
                 doctor_id, patient_id, assigned_by, status
             )
             VALUES (:doctor_id, :patient_id, 'doctor', 'active')
-            ON CONFLICT (doctor_id, patient_id)
-            DO UPDATE SET status = 'active', updated_at = NOW()
+            ON DUPLICATE KEY UPDATE status = 'active', updated_at = NOW()
             """
         ),
         {"doctor_id": doctor_id, "patient_id": patient_id},
@@ -297,7 +297,7 @@ def _find_metadata_duplicate(
         WHERE r.patient_id = :patient_id
           AND r.upload_document_type = :upload_document_type
           AND r.file_size_bytes BETWEEN :low_size AND :high_size
-          AND r.first_uploaded_at >= NOW() - INTERVAL '72 hours'
+          AND r.first_uploaded_at >= NOW() - INTERVAL 72 HOUR
     """
     params = {
         "patient_id": patient_id,
@@ -371,10 +371,10 @@ def _upsert_document_job(
                 :job_id, :patient_id, :document_type, :file_name, 'uploaded',
                 FALSE, NOW(), 'system', CURRENT_DATE
             )
-            ON CONFLICT (job_id) DO UPDATE
-            SET document_type = EXCLUDED.document_type,
-                file_name = EXCLUDED.file_name,
-                status = EXCLUDED.status,
+            ON DUPLICATE KEY UPDATE
+                document_type = VALUES(document_type),
+                file_name = VALUES(file_name),
+                status = VALUES(status),
                 uploaded_at = NOW()
             """
         ),
@@ -658,7 +658,7 @@ def run_pipeline_a_task(
     try:
         # Pre-create document_jobs row with all NOT NULL columns so that
         # Pipeline A's internal upsert_job(status='processing') hits the
-        # ON CONFLICT DO UPDATE path instead of a bare INSERT that would
+        # duplicate-key update path instead of a bare INSERT that would
         # fail with "null value in column patient_id".
         upsert_job(
             db,

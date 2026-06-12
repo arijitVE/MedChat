@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from uuid import UUID
+from uuid import UUID, uuid4
 
 from fastapi import HTTPException
 from sqlalchemy import text
@@ -172,11 +172,12 @@ def signup(body: SignupRequest, db: Session) -> TokenResponse:
 
     patient_uid = _generate_patient_uid(db) if body.role == "patient" else None
     verification_status = "pending_verification" if body.role == "doctor" else "approved"
-    row = db.execute(
+    user_id = str(uuid4())
+    db.execute(
         text(
             """
             INSERT INTO users (
-                email, password_hash, role, full_name, phone, license_number,
+                user_id, email, password_hash, role, full_name, phone, license_number,
                 specialization, hospital_name, years_of_experience, department,
                 profile_photo, verification_status,
                 patient_uid, age, gender, date_of_birth, sex,
@@ -184,17 +185,17 @@ def signup(body: SignupRequest, db: Session) -> TokenResponse:
                 is_registered, is_active
             )
             VALUES (
-                :email, :password_hash, :role, :full_name, :phone, :license_number,
+                :user_id, :email, :password_hash, :role, :full_name, :phone, :license_number,
                 :specialization, :hospital_name, :years_of_experience, :department,
                 :profile_photo, :verification_status,
                 :patient_uid, :age, :gender, :date_of_birth, :sex,
                 :blood_group, :allergies, :chronic_conditions, :address, :emergency_contact,
                 TRUE, TRUE
             )
-            RETURNING user_id
             """
         ),
         {
+            "user_id": user_id,
             "email": body.email,
             "password_hash": hash_password(body.password),
             "role": body.role,
@@ -218,8 +219,7 @@ def signup(body: SignupRequest, db: Session) -> TokenResponse:
             "address": body.address,
             "emergency_contact": body.emergency_contact,
         },
-    ).mappings().one()
-    user_id = row["user_id"]
+    )
     _write_audit(db, user_id, body.role, "SIGNUP", entity_id=str(user_id))
     db.commit()
     return _token_response(user_id, body.role, body.email)

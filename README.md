@@ -1342,7 +1342,7 @@ Important variables:
 OPENAI_API_KEY=your-openai-api-key
 GOOGLE_APPLICATION_CREDENTIALS=/absolute/path/to/google-service-account.json
 
-DATABASE_URL=postgresql://hdmis_user:hdmis_pass@localhost:5432/hdmis
+DATABASE_URL=mysql+pymysql://hdmis_user:hdmis_pass@localhost:3306/hdmis
 REDIS_URL=redis://localhost:6379/0
 
 SECRET_KEY=replace-with-a-long-random-secret-at-least-32-characters
@@ -1382,13 +1382,13 @@ cp .env.example .env
 Create the database:
 
 ```bash
-createdb hdmis
+mysql -u root -p -e "CREATE DATABASE IF NOT EXISTS hdmis; CREATE USER IF NOT EXISTS 'hdmis_user'@'localhost' IDENTIFIED BY 'hdmis_pass'; GRANT ALL PRIVILEGES ON hdmis.* TO 'hdmis_user'@'localhost'; FLUSH PRIVILEGES;"
 ```
 
 Apply migrations:
 
 ```bash
-for file in migrations/*.sql; do psql "$DATABASE_URL" -f "$file"; done
+bash infra/scripts/migrate.sh
 ```
 
 Start Redis:

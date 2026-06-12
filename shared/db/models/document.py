@@ -8,10 +8,10 @@ from datetime import datetime, timezone
 from typing import Any, Optional
 
 from sqlalchemy import JSON, Boolean, DateTime, Float, String, Text, UniqueConstraint
-from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.orm import Mapped, Session, mapped_column
 
 from shared.db.base import Base
+from shared.db.upsert import build_upsert
 
 
 class DocumentJob(Base):
@@ -97,7 +97,7 @@ class DocumentJob(Base):
 
 
 # ---------------------------------------------------------------------------
-# Upsert helper — INSERT ... ON CONFLICT (job_id) DO UPDATE
+# Upsert helper
 # ---------------------------------------------------------------------------
 
 
@@ -121,19 +121,14 @@ def upsert_job(db: Session, job_id: str, **fields: Any) -> None:
 
     if not update_values:
         # Nothing to update — use DO NOTHING to avoid constraint violation
-        stmt = (
-            pg_insert(DocumentJob)
-            .values(**insert_values)
-            .on_conflict_do_nothing(index_elements=["job_id"])
-        )
+        stmt = build_upsert(db, DocumentJob, insert_values, {}, index_elements=["job_id"])
     else:
-        stmt = (
-            pg_insert(DocumentJob)
-            .values(**insert_values)
-            .on_conflict_do_update(
-                index_elements=["job_id"],
-                set_=update_values,
-            )
+        stmt = build_upsert(
+            db,
+            DocumentJob,
+            insert_values,
+            update_values,
+            index_elements=["job_id"],
         )
 
     db.execute(stmt)

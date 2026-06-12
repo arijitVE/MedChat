@@ -1,4 +1,4 @@
-from uuid import UUID
+from uuid import UUID, uuid4
 
 from fastapi import HTTPException
 from pipeline_b.cache.response_cache import invalidate_patient
@@ -198,6 +198,21 @@ def _response_from_row(row) -> VerificationResponse:
     )
 
 
+def _get_verification_by_id(db: Session, verification_id: str):
+    return db.execute(
+        text(
+            """
+            SELECT verification_id, report_id, job_id, field_name, field_value,
+                   verified_by, verifier_role, verification_type, edited_value,
+                   edit_reason, is_final, verified_at
+            FROM field_verifications
+            WHERE verification_id = :verification_id
+            """
+        ),
+        {"verification_id": verification_id},
+    ).mappings().one()
+
+
 def get_current_field_verification(report_id: str, field_name: str, db: Session):
     return db.execute(
         text(
@@ -340,25 +355,24 @@ def verify_field(
         )
         field_value = new_value
 
-    row = db.execute(
+    verification_id = str(uuid4())
+    db.execute(
         text(
             """
             INSERT INTO field_verifications (
-                report_id, job_id, field_name, field_value,
+                verification_id, report_id, job_id, field_name, field_value,
                 verified_by, verifier_role, verification_type,
                 edited_value, edit_reason, is_final, verified_at
             )
             VALUES (
-                :report_id, :job_id, :field_name, :field_value,
+                :verification_id, :report_id, :job_id, :field_name, :field_value,
                 :verified_by, :verifier_role, :verification_type,
-                :edited_value, :edit_reason, :is_final, clock_timestamp()
+                :edited_value, :edit_reason, :is_final, CURRENT_TIMESTAMP(6)
             )
-            RETURNING verification_id, report_id, job_id, field_name, field_value,
-                      verified_by, verifier_role, verification_type, edited_value,
-                      edit_reason, is_final, verified_at
             """
         ),
         {
+            "verification_id": verification_id,
             "report_id": report_id,
             "job_id": report["job_id"],
             "field_name": field_name,
@@ -370,7 +384,8 @@ def verify_field(
             "edit_reason": body.edit_reason,
             "is_final": is_final,
         },
-    ).mappings().one()
+    )
+    row = _get_verification_by_id(db, verification_id)
 
     action = "EDIT_FIELD" if body.verification_type == "edited" else "VERIFY_FIELD"
     _write_audit(
@@ -461,25 +476,24 @@ def edit_field_value(
         },
     )
 
-    row = db.execute(
+    verification_id = str(uuid4())
+    db.execute(
         text(
             """
             INSERT INTO field_verifications (
-                report_id, job_id, field_name, field_value,
+                verification_id, report_id, job_id, field_name, field_value,
                 verified_by, verifier_role, verification_type,
                 edited_value, edit_reason, is_final, verified_at
             )
             VALUES (
-                :report_id, :job_id, :field_name, :field_value,
+                :verification_id, :report_id, :job_id, :field_name, :field_value,
                 :verified_by, :verifier_role, 'edited',
-                :edited_value, :edit_reason, FALSE, clock_timestamp()
+                :edited_value, :edit_reason, FALSE, CURRENT_TIMESTAMP(6)
             )
-            RETURNING verification_id, report_id, job_id, field_name, field_value,
-                      verified_by, verifier_role, verification_type, edited_value,
-                      edit_reason, is_final, verified_at
             """
         ),
         {
+            "verification_id": verification_id,
             "report_id": report_id,
             "job_id": report["job_id"],
             "field_name": field_name,
@@ -489,7 +503,8 @@ def edit_field_value(
             "edited_value": new_value,
             "edit_reason": body.edit_reason,
         },
-    ).mappings().one()
+    )
+    row = _get_verification_by_id(db, verification_id)
 
     db.execute(
         text(
@@ -567,7 +582,7 @@ def verify_report(
                 VALUES (
                     :report_id, :job_id, :field_name, :field_value,
                     :verified_by, :verifier_role, 'approved',
-                    NULL, 'Report-level verification', TRUE, clock_timestamp()
+                    NULL, 'Report-level verification', TRUE, CURRENT_TIMESTAMP(6)
                 )
                 """
             ),

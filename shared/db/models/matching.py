@@ -6,10 +6,10 @@ from __future__ import annotations
 from typing import Any, Optional
 
 from sqlalchemy import Float, Integer, String, UniqueConstraint
-from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.orm import Mapped, Session, mapped_column
 
 from shared.db.base import Base
+from shared.db.upsert import build_upsert
 
 
 class MatchResult(Base):
@@ -83,7 +83,7 @@ class MatchResult(Base):
 def upsert_match_result(db: Session, job_id: str, **fields: Any) -> None:
     """Upsert a match result row keyed on (job_id, field_name).
 
-    Uses INSERT ... ON CONFLICT (job_id, field_name) DO UPDATE.
+    Uses a database-native upsert keyed on (job_id, field_name).
     """
     values = {"job_id": job_id, **fields}
     update_values = {
@@ -91,13 +91,13 @@ def upsert_match_result(db: Session, job_id: str, **fields: Any) -> None:
         if k != "field_name"
     }
 
-    stmt = (
-        pg_insert(MatchResult)
-        .values(**values)
-        .on_conflict_do_update(
-            constraint="uq_match_results_job_id_field_name",
-            set_=update_values,
-        )
+    stmt = build_upsert(
+        db,
+        MatchResult,
+        values,
+        update_values,
+        index_elements=["job_id", "field_name"],
+        constraint="uq_match_results_job_id_field_name",
     )
     db.execute(stmt)
     db.flush()

@@ -55,25 +55,23 @@ def test_low_confidence_tag_in_embedding():
     assert "[LOW_CONFIDENCE] glucose: 95" in output.structured_text_for_embedding
 
 def test_upsert_duplicate_job_id():
-    """Verify that document_jobs uses INSERT ... ON CONFLICT DO UPDATE"""
+    """Verify that document_jobs uses MySQL ON DUPLICATE KEY UPDATE"""
     from shared.db.models.document import DocumentJob
-    from sqlalchemy.dialects.postgresql import insert
-    from sqlalchemy.dialects import postgresql
+    from sqlalchemy.dialects.mysql import dialect, insert
     
     stmt = insert(DocumentJob).values(job_id="test", status="pending", document_type="unknown", patient_id="p")
-    stmt = stmt.on_conflict_do_update(index_elements=["job_id"], set_={"status": "completed"})
+    stmt = stmt.on_duplicate_key_update(status="completed")
     
-    compiled = str(stmt.compile(dialect=postgresql.dialect()))
-    assert "ON CONFLICT (job_id) DO UPDATE" in compiled
+    compiled = str(stmt.compile(dialect=dialect()))
+    assert "ON DUPLICATE KEY UPDATE" in compiled
 
 def test_upsert_duplicate_job_id_name():
-    """Verify that report_fields uses ON CONSTRAINT ... DO UPDATE to prevent IntegrityError"""
+    """Verify that report_fields uses MySQL upsert to prevent IntegrityError"""
     from shared.db.models.extraction import ReportField
-    from sqlalchemy.dialects.postgresql import insert
-    from sqlalchemy.dialects import postgresql
+    from sqlalchemy.dialects.mysql import dialect, insert
     
     stmt = insert(ReportField).values(job_id="test", name="hb", patient_id="p", value="1", confidence=1.0, status="auto")
-    stmt = stmt.on_conflict_do_update(constraint="uq_report_fields_job_id_name", set_={"value": "2"})
+    stmt = stmt.on_duplicate_key_update(value="2")
     
-    compiled = str(stmt.compile(dialect=postgresql.dialect()))
-    assert "ON CONFLICT ON CONSTRAINT uq_report_fields_job_id_name DO UPDATE" in compiled
+    compiled = str(stmt.compile(dialect=dialect()))
+    assert "ON DUPLICATE KEY UPDATE" in compiled

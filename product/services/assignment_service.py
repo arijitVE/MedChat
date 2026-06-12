@@ -1,4 +1,4 @@
-from uuid import UUID
+from uuid import UUID, uuid4
 
 from fastapi import HTTPException
 from sqlalchemy import text
@@ -113,24 +113,25 @@ def create_assignment(
         raise HTTPException(status_code=409, detail="Assignment already exists")
 
     status = "active" if initiated_by == "admin" else "pending"
-    row = db.execute(
+    assignment_id = str(uuid4())
+    db.execute(
         text(
             """
             INSERT INTO doctor_patient_assignments (
-                doctor_id, patient_id, assigned_by, status
+                assignment_id, doctor_id, patient_id, assigned_by, status
             )
-            VALUES (:doctor_id, :patient_id, :assigned_by, :status)
-            RETURNING assignment_id, doctor_id, patient_id, assigned_by,
-                      status, created_at, updated_at
+            VALUES (:assignment_id, :doctor_id, :patient_id, :assigned_by, :status)
             """
         ),
         {
+            "assignment_id": assignment_id,
             "doctor_id": doctor_id,
             "patient_id": patient_id,
             "assigned_by": initiated_by,
             "status": status,
         },
-    ).mappings().one()
+    )
+    row = _get_assignment(db, assignment_id)
 
     if initiated_by == "admin":
         if initiator_id is None:
@@ -180,18 +181,17 @@ def approve_assignment(assignment_id, approving_user_id, db: Session) -> Assignm
     if str(approving_user_id) != str(pending_party):
         raise HTTPException(status_code=403, detail="Only the pending party can approve")
 
-    row = db.execute(
+    db.execute(
         text(
             """
             UPDATE doctor_patient_assignments
             SET status = 'active', updated_at = NOW()
             WHERE assignment_id = :assignment_id
-            RETURNING assignment_id, doctor_id, patient_id, assigned_by,
-                      status, created_at, updated_at
             """
         ),
         {"assignment_id": assignment_id},
-    ).mappings().one()
+    )
+    row = _get_assignment(db, assignment_id)
 
     _write_audit(db, approving_user_id, "patient" if assigned_by == "doctor" else "doctor", "APPROVE_ASSIGNMENT", assignment_id)
     other_party = row["patient_id"] if str(approving_user_id) == str(row["doctor_id"]) else row["doctor_id"]
@@ -206,18 +206,17 @@ def reject_assignment(assignment_id, rejecting_user_id, db: Session) -> Assignme
         raise HTTPException(status_code=400, detail="Assignment is not pending")
     if str(rejecting_user_id) not in (str(assignment["doctor_id"]), str(assignment["patient_id"])):
         raise HTTPException(status_code=403, detail="User is not part of this assignment")
-    row = db.execute(
+    db.execute(
         text(
             """
             UPDATE doctor_patient_assignments
             SET status = 'rejected', updated_at = NOW()
             WHERE assignment_id = :assignment_id
-            RETURNING assignment_id, doctor_id, patient_id, assigned_by,
-                      status, created_at, updated_at
             """
         ),
         {"assignment_id": assignment_id},
-    ).mappings().one()
+    )
+    row = _get_assignment(db, assignment_id)
 
     rejecting_role = "patient" if str(rejecting_user_id) == str(row["patient_id"]) else "doctor"
     target_id = row["doctor_id"] if rejecting_role == "patient" else row["patient_id"]

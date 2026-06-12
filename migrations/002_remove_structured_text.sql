@@ -1,1 +1,1 @@
-ALTER TABLE document_jobs DROP COLUMN IF EXISTS structured_text_for_embedding;
+-- Consolidated into 001_product_layer_schema.sql for MySQL.

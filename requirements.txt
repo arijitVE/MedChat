@@ -12,7 +12,7 @@ python-dotenv>=1.0.0
 
 # Database
 sqlalchemy>=2.0.25
-psycopg2-binary>=2.9.9
+pymysql>=1.1.0
 alembic>=1.13.0
 
 # OCR
@@ -40,3 +40,6 @@ bcrypt
 # Testing
 pytest>=8.0.0
 pytest-asyncio>=0.23.0
+
+#added
+celery

@@ -177,15 +177,28 @@ def mark_notification_read(
     recipient_id: str | UUID,
     db: Session,
 ) -> NotificationItem:
-    row = db.execute(
+    db.execute(
         text(
             """
             UPDATE notifications
             SET is_read = TRUE
             WHERE notification_id = :notification_id
               AND recipient_id = :recipient_id
-            RETURNING notification_id, recipient_id, sender_id, type, title,
-                      message, report_id, is_read, created_at
+            """
+        ),
+        {
+            "notification_id": notification_id,
+            "recipient_id": recipient_id,
+        },
+    )
+    row = db.execute(
+        text(
+            """
+            SELECT notification_id, recipient_id, sender_id, type, title,
+                   message, report_id, is_read, created_at
+            FROM notifications
+            WHERE notification_id = :notification_id
+              AND recipient_id = :recipient_id
             """
         ),
         {

@@ -66,28 +66,35 @@ def _patient_history_search(query_text: str, patient_id, db: Session) -> Patient
         for token in query_text.replace("?", " ").replace(",", " ").split()
         if len(token.strip()) >= 3
     ]
+    patterns = [f"%{token}%" for token in tokens] or ["%"]
+    pattern_clauses = []
+    pattern_params = {"patient_id": patient_id}
+    for index, pattern in enumerate(patterns):
+        key = f"pattern_{index}"
+        pattern_params[key] = pattern
+        pattern_clauses.append(
+            f"""
+                  LOWER(rf.name) LIKE :{key}
+                  OR LOWER(r.file_name) LIKE :{key}
+                  OR LOWER(r.inferred_document_type) LIKE :{key}
+            """
+        )
+    pattern_sql = " OR ".join(f"({clause})" for clause in pattern_clauses)
     rows = db.execute(
         text(
-            """
+            f"""
             SELECT rf.name, rf.value, rf.unit, rf.reference_range, rf.confidence,
                    rf.status, r.file_name, r.first_uploaded_at
             FROM report_fields rf
             JOIN reports r ON r.job_id = rf.job_id
             WHERE r.patient_id = :patient_id
               AND r.released_to_patient = TRUE
-              AND (
-                  rf.name ILIKE ANY(:patterns)
-                  OR r.file_name ILIKE ANY(:patterns)
-                  OR r.inferred_document_type ILIKE ANY(:patterns)
-              )
+              AND ({pattern_sql})
             ORDER BY r.first_uploaded_at DESC
             LIMIT 10
             """
         ),
-        {
-            "patient_id": patient_id,
-            "patterns": [f"%{token}%" for token in tokens] or ["%"],
-        },
+        pattern_params,
     ).mappings().all()
 
     if not rows:

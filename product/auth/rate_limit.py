@@ -81,7 +81,7 @@ def check_rate_limit(
                 text(
                     """
                     INSERT INTO audit_log (user_id, action, entity_type, entity_id, metadata)
-                    VALUES (:user_id, :action, 'rate_limit', :entity_id, CAST(:metadata AS JSONB))
+                    VALUES (:user_id, :action, 'rate_limit', :entity_id, :metadata)
                     """
                 ),
                 {

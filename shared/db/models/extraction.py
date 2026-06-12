@@ -7,10 +7,10 @@ from __future__ import annotations
 from typing import Any, Optional
 
 from sqlalchemy import Float, ForeignKey, Integer, String, Text, UniqueConstraint
-from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.orm import Mapped, Session, mapped_column
 
 from shared.db.base import Base
+from shared.db.upsert import build_upsert
 
 
 class ReportField(Base):
@@ -100,7 +100,7 @@ class ReportField(Base):
 
 
 # ---------------------------------------------------------------------------
-# Upsert helper — INSERT ... ON CONFLICT (job_id, name) DO UPDATE
+# Upsert helper
 # ---------------------------------------------------------------------------
 
 
@@ -112,8 +112,7 @@ def upsert_fields(
 ) -> None:
     """Bulk upsert scored fields into report_fields.
 
-    Uses PostgreSQL INSERT ... ON CONFLICT (job_id, name) DO UPDATE so
-    that Celery retries never create duplicate rows.
+    Uses a database-native upsert so Celery retries never create duplicate rows.
 
     Args:
         db: SQLAlchemy session.
@@ -153,13 +152,13 @@ def upsert_fields(
             if k not in ("job_id", "name")  # don't update the conflict keys
         }
 
-        stmt = (
-            pg_insert(ReportField)
-            .values(**values)
-            .on_conflict_do_update(
-                constraint="uq_report_fields_job_id_name",
-                set_=update_values,
-            )
+        stmt = build_upsert(
+            db,
+            ReportField,
+            values,
+            update_values,
+            index_elements=["job_id", "name"],
+            constraint="uq_report_fields_job_id_name",
         )
         db.execute(stmt)
 
@@ -197,13 +196,13 @@ def upsert_single_field(db: Session, job_id: str, patient_id: str, **field_data:
         if k != "name"
     }
 
-    stmt = (
-        pg_insert(ReportField)
-        .values(**values)
-        .on_conflict_do_update(
-            constraint="uq_report_fields_job_id_name",
-            set_=update_values,
-        )
+    stmt = build_upsert(
+        db,
+        ReportField,
+        values,
+        update_values,
+        index_elements=["job_id", "name"],
+        constraint="uq_report_fields_job_id_name",
     )
     db.execute(stmt)
     db.flush()

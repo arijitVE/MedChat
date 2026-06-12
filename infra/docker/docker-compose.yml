@@ -2,15 +2,16 @@ version: "3.8"
 
 services:
   db:
-    image: postgres:15-alpine
+    image: mysql:8.4
     environment:
-      POSTGRES_USER: hdmis_user
-      POSTGRES_PASSWORD: hdmis_pass
-      POSTGRES_DB: hdmis
+      MYSQL_DATABASE: hdmis
+      MYSQL_USER: hdmis_user
+      MYSQL_PASSWORD: hdmis_pass
+      MYSQL_ROOT_PASSWORD: hdmis_root_pass
     ports:
-      - "5432:5432"
+      - "3306:3306"
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U hdmis_user"]
+      test: ["CMD-SHELL", "mysqladmin ping -h localhost -u hdmis_user -phdmis_pass"]
       interval: 5s
       timeout: 5s
       retries: 5
@@ -32,7 +33,7 @@ services:
     ports:
       - "8000:8000"
     environment:
-      DATABASE_URL: postgresql://hdmis_user:hdmis_pass@db:5432/hdmis
+      DATABASE_URL: mysql+pymysql://hdmis_user:hdmis_pass@db:3306/hdmis
       REDIS_URL: redis://redis:6379/0
     depends_on:
       db:
@@ -46,7 +47,7 @@ services:
       context: ../../
       dockerfile: infra/docker/Dockerfile
     environment:
-      DATABASE_URL: postgresql://hdmis_user:hdmis_pass@db:5432/hdmis
+      DATABASE_URL: mysql+pymysql://hdmis_user:hdmis_pass@db:3306/hdmis
       REDIS_URL: redis://redis:6379/0
     depends_on:
       db:
