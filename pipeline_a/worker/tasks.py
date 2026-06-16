@@ -20,19 +20,16 @@ def process_document_task(self, job_id: str, patient_id: str, file_bytes_hex: st
         # Mark job as PROCESSING
         upsert_job(db, job_id, status=JobStatus.processing.value)
         
-        # Call orchestrator.run() ONLY
+        # Run the full pipeline
         output = process_document.run(job_id, patient_id, file_bytes_hex, document_type, db, file_name=file_name)
         
-        # Upsert the result (safe on retry)
+        # Persist final status and fields (safe on retry)
         upsert_job(
-            db, 
-            output.job_id, 
+            db,
+            output.job_id,
             status=output.job_status.value,
-            hitl_required=output.hitl_required,
-            hitl_reasons=output.hitl_reasons,
             structured_text_for_embedding=output.structured_text_for_embedding,
-            ocr_latency_ms=output.ocr_latency_ms,
-            llm_latency_ms=output.llm_latency_ms
+            llm_latency_ms=output.llm_latency_ms,
         )
         upsert_fields(db, output.job_id, output.scored_fields, patient_id=output.patient_id)
         
@@ -53,9 +50,9 @@ def process_document_task(self, job_id: str, patient_id: str, file_bytes_hex: st
     except Exception as exc:
         total_latency_ms = (time.time() - start_time) * 1000
         upsert_job(
-            db, 
-            job_id, 
-            status=JobStatus.failed.value, 
+            db,
+            job_id,
+            status=JobStatus.failed.value,
             error_message=str(exc),
             total_pipeline_latency_ms=total_latency_ms
         )

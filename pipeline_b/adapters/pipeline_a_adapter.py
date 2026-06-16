@@ -93,8 +93,6 @@ def _build_clinical_field(row: Any, job_row: Any) -> ClinicalField:
         reference_range=_get_value(row, "reference_range"),
         ref_low=ref_low,
         ref_high=ref_high,
-        confidence=_get_value(row, "confidence"),
-        status=_get_value(row, "status"),
         is_abnormal=compute_is_abnormal(numeric_value, ref_low, ref_high),
         source_type="patient",
     )
@@ -125,7 +123,6 @@ def get_patient_record(
         job_id=job_row.job_id,
         document_type=job_row.document_type,
         processed_at=job_row.processed_at or datetime.now(timezone.utc),
-        hitl_required=job_row.hitl_required,
         structured_text=job_row.structured_text_for_embedding or "",
         fields=[_build_clinical_field(row, job_row) for row in field_rows],
     )
@@ -136,7 +133,7 @@ def get_all_records_for_patient(patient_id: str, db: Session) -> list[PatientRec
         db.query(DocumentJob)
         .filter(
             DocumentJob.patient_id == patient_id,
-            DocumentJob.status.in_(("completed", "hitl_required")),
+            DocumentJob.status == "completed",
         )
         .order_by(DocumentJob.processed_at.asc())
         .all()

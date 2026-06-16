@@ -98,4 +98,3 @@ class AdminSettings(BaseModel):
     jwt_expiry_minutes: int
     rate_limit_storage: str
     openai_configured: bool
-    google_vision_configured: bool

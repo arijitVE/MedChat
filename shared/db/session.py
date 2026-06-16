@@ -71,7 +71,7 @@ def init_db() -> None:
     NOTE: You must import all model modules before calling this so that
     Base.metadata is aware of all tables. Example::
 
-        from shared.db.models import document, extraction, ocr  # noqa
+        from shared.db.models import document, extraction  # noqa
         init_db()
     """
     Base.metadata.create_all(bind=_engine)

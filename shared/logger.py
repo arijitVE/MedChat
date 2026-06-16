@@ -86,31 +86,25 @@ def log_stage(
 
     Args:
         logger: The bound structlog logger for the calling module.
-        stage: Stage name (e.g. "ingestion", "ocr", "llm_extraction",
-               "normalization", "matching", "confidence_scoring",
-               "conflict_resolution", "worker").
+        stage: Stage name (e.g. "ingestion", "llm_extraction",
+               "normalization", "conflict_resolution", "worker").
         job_id: Unique job identifier.
         duration_ms: Stage execution time in milliseconds.
         status: "success" or "error".
         **extra_fields: Stage-specific observability fields, e.g.:
-            OCR:        page_count, avg_ocr_confidence, low_confidence, ocr_latency_ms
             LLM:        attempt_count, field_count, fallback_used, llm_latency_ms
-            Matching:   phrase_window_count, avg_fuzzy_score, avg_semantic_score
-            Confidence: hitl_field_count, auto_field_count, avg_final_score
-            Conflict:   hitl_required, job_status, hitl_reason_list
+            Conflict:   job_status, total_field_count
             Worker:     total_pipeline_latency_ms, retry_count, final_status
 
     Example:
         >>> log_stage(
         ...     logger,
-        ...     stage="ocr",
+        ...     stage="llm_extraction",
         ...     job_id="abc-123",
         ...     duration_ms=1245.3,
         ...     status="success",
-        ...     page_count=2,
-        ...     avg_ocr_confidence=0.92,
-        ...     low_confidence=False,
-        ...     ocr_latency_ms=1245.3,
+        ...     field_count=12,
+        ...     llm_latency_ms=1245.3,
         ... )
     """
     log_data: dict[str, Any] = {

@@ -38,14 +38,9 @@ def _filter_fields(fields: list[ClinicalField], filters: dict | None) -> list[Cl
     if filters.get("abnormal_only") is True:
         scoped_fields = [field for field in scoped_fields if field.is_abnormal is True]
     if filters.get("low_confidence_only") is True:
-        scoped_fields = [field for field in scoped_fields if field.confidence < 0.85]
+        scoped_fields = []
     if filters.get("verification_needed_only") is True:
-        scoped_fields = [
-            field
-            for field in scoped_fields
-            if field.status in {"hitl", "hitl_required", "pending", "needs_review"}
-            or field.confidence < 0.85
-        ]
+        scoped_fields = []
 
     return scoped_fields
 

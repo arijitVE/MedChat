@@ -13,7 +13,7 @@ class IngestedDocument(BaseModel):
     """Output of the ingestion stage (Stage 1).
 
     Created after MIME validation and document-type detection.
-    Carries the raw file bytes forward to the OCR stage.
+    Carries the raw file bytes forward to LLM extraction.
     """
     job_id: str = Field(
         ...,

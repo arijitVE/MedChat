@@ -1,6 +1,5 @@
 import hashlib
-import time
-from datetime import datetime
+from datetime import datetime, timezone
 
 from pipeline_b.schemas.output import CachedResponse
 
@@ -29,7 +28,7 @@ def set_cache(
     _cache[cache_key] = CachedResponse(
         cache_key=cache_key,
         result=result,
-        created_at=datetime.utcnow(),
+        created_at=datetime.now(timezone.utc),
         query_type=query_type,
     )
 

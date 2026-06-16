@@ -244,3 +244,40 @@ def ingest(
             mime_type="unknown",
         )
         raise
+
+
+def pdf_to_images(file_bytes: bytes, dpi: int = 200) -> list[bytes]:
+    """Convert each page of a PDF to a PNG image using PyMuPDF.
+
+    Args:
+        file_bytes: Raw PDF bytes.
+        dpi: Resolution for rasterisation (default 200).
+
+    Returns:
+        List of PNG image bytes, one per page.
+
+    Raises:
+        ValueError: If the PDF cannot be opened or has zero pages.
+    """
+    import fitz  # PyMuPDF
+
+    try:
+        doc = fitz.open(stream=file_bytes, filetype="pdf")
+    except Exception as exc:
+        raise ValueError(f"Failed to open PDF: {exc}") from exc
+
+    if doc.page_count == 0:
+        raise ValueError("PDF has zero pages")
+
+    images: list[bytes] = []
+    zoom = dpi / 72  # PyMuPDF default is 72 DPI
+    matrix = fitz.Matrix(zoom, zoom)
+
+    for page_num in range(doc.page_count):
+        page = doc[page_num]
+        pix = page.get_pixmap(matrix=matrix)
+        images.append(pix.tobytes("png"))
+
+    doc.close()
+    return images
+

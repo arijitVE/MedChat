@@ -364,12 +364,10 @@ def _upsert_document_job(
         text(
             """
             INSERT INTO document_jobs (
-                job_id, patient_id, document_type, file_name, status,
-                hitl_required, uploaded_at, upload_source, collection_date
+                job_id, patient_id, document_type, file_name, status, uploaded_at
             )
             VALUES (
-                :job_id, :patient_id, :document_type, :file_name, 'uploaded',
-                FALSE, NOW(), 'system', CURRENT_DATE
+                :job_id, :patient_id, :document_type, :file_name, 'processing', NOW()
             )
             ON DUPLICATE KEY UPDATE
                 document_type = VALUES(document_type),
@@ -426,9 +424,9 @@ def on_pipeline_a_complete(
 
     Steps executed (in order):
         1. Update ``reports.inferred_document_type`` from Pipeline A output.
-        2. Set ``lifecycle_status`` based on ``output.hitl_required``.
+        2. Mark the report as auto-approved after automated extraction.
         3. Trigger Qdrant ingestion (Pipeline B).
-        4. Send role-appropriate notification (doctor for HITL, patient otherwise).
+        4. Notify the patient if the report is already released.
         5. Re-evaluate TIER 2 duplicate using ``inferred_document_type`` (FIX 13).
         6. Log completion.
     """
@@ -448,8 +446,7 @@ def on_pipeline_a_complete(
             else str(output.document_type)
         )
 
-    hitl_required = bool(getattr(output, "hitl_required", False))
-    lifecycle_status = "hitl_required" if hitl_required else "auto_approved"
+    lifecycle_status = "auto_approved"
 
     # ------------------------------------------------------------------
     # STEP 1 + STEP 2 — Update inferred_document_type & lifecycle_status
@@ -497,44 +494,16 @@ def on_pipeline_a_complete(
     # ------------------------------------------------------------------
     # STEP 4 — Send notification to correct party
     # ------------------------------------------------------------------
-    if hitl_required:
-        # Notify the assigned doctor (if any)
-        doctor_row = db.execute(
-            text(
-                """
-                SELECT doctor_id
-                FROM doctor_patient_assignments
-                WHERE patient_id = :patient_id
-                  AND status = 'active'
-                ORDER BY created_at DESC
-                LIMIT 1
-                """
-            ),
-            {"patient_id": report["patient_id"]},
-        ).mappings().first()
-        doctor_id = doctor_row["doctor_id"] if doctor_row else report.get("doctor_id")
-        if doctor_id is not None:
-            notification_service.create_notification(
-                recipient_id=doctor_id,
-                sender_id=None,
-                notif_type="HITL_REQUIRED",
-                title="Verification Required",
-                message=f"Report needs manual verification for patient {report_patient_id}",
-                report_id=report_id,
-                db=db,
-            )
-    else:
-        # Notify patient only if report is already released
-        if report["released_to_patient"]:
-            notification_service.create_notification(
-                recipient_id=report["patient_id"],
-                sender_id=None,
-                notif_type="REPORT_PROCESSED",
-                title="Your report is ready",
-                message="Your report has been processed and is available to view.",
-                report_id=report_id,
-                db=db,
-            )
+    if report["released_to_patient"]:
+        notification_service.create_notification(
+            recipient_id=report["patient_id"],
+            sender_id=None,
+            notif_type="REPORT_PROCESSED",
+            title="Your report is ready",
+            message="Your report has been processed and is available to view.",
+            report_id=report_id,
+            db=db,
+        )
 
     # Audit entry
     _write_audit(
@@ -617,7 +586,6 @@ def on_pipeline_a_complete(
         job_id=job_id,
         patient_id=patient_id,
         lifecycle_status=lifecycle_status,
-        hitl_required=hitl_required,
         inferred_document_type=inferred_type,
     )
 
@@ -667,7 +635,6 @@ def run_pipeline_a_task(
             document_type=document_type,
             file_name="",
             status=JobStatus.processing.value,
-            hitl_required=False,
             uploaded_at=_dt.datetime.now(_dt.timezone.utc),
         )
         db.commit()
@@ -684,10 +651,7 @@ def run_pipeline_a_task(
             db,
             output.job_id,
             status=output.job_status.value,
-            hitl_required=output.hitl_required,
-            hitl_reasons=output.hitl_reasons,
             structured_text_for_embedding=output.structured_text_for_embedding,
-            ocr_latency_ms=output.ocr_latency_ms,
             llm_latency_ms=output.llm_latency_ms,
         )
         upsert_fields(db, output.job_id, output.scored_fields, patient_id=output.patient_id)

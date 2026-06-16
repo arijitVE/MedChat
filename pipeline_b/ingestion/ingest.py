@@ -48,7 +48,7 @@ def ingest_all_existing(db):
     rows = db.execute(
         text(
             "SELECT job_id, patient_id FROM document_jobs "
-            "WHERE status IN ('completed', 'hitl_required')"
+            "WHERE status = 'completed'"
         )
     ).fetchall()
 

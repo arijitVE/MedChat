@@ -152,7 +152,6 @@ export interface SystemSettings {
   jwt_expiry_minutes: number;
   rate_limit_storage: string;
   openai_configured: boolean;
-  google_vision_configured: boolean;
 }
 
 export interface PasswordResetRequest {

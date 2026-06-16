@@ -22,9 +22,6 @@ class ClinicalField(BaseModel):
     ref_low: float | None
     ref_high: float | None
 
-    # Quality
-    confidence: float
-    status: str
     is_abnormal: bool | None
 
     # Source
@@ -36,6 +33,5 @@ class PatientRecord(BaseModel):
     job_id: str
     document_type: str
     processed_at: datetime
-    hitl_required: bool
     structured_text: str
     fields: list[ClinicalField]

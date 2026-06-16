@@ -67,7 +67,7 @@ def _build_context(fields: list, max_fields: int = 15) -> str:
         fields,
         key=lambda f: (
             f.is_abnormal is True,
-            f.confidence,
+            f.processed_at,
         ),
         reverse=True,
     )[:max_fields]
@@ -97,7 +97,7 @@ def generate_doctor_reasoning(
         fields,
         key=lambda f: (
             f.is_abnormal is True,
-            f.confidence,
+            f.processed_at,
         ),
         reverse=True,
     )[:max_fields]

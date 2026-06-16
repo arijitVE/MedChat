@@ -1,4 +1,4 @@
-# shared/schemas/report.py — Core structured medical schema (medications, dosage, etc.)
+# shared/schemas/report.py — Core structured medical schema
 # Enums and Pydantic models used across all pipeline stages.
 # No raw dict crosses a stage boundary — all inter-stage data uses these models.
 
@@ -11,7 +11,7 @@ from pydantic import BaseModel, Field
 
 
 # ---------------------------------------------------------------------------
-# Enums (exact values from blueprint Step 2)
+# Enums
 # ---------------------------------------------------------------------------
 
 
@@ -24,69 +24,21 @@ class DocumentType(str, Enum):
     unknown = "unknown"
 
 
-class FieldStatus(str, Enum):
-    """Status of an extracted field after confidence scoring."""
-    auto = "auto"
-    hitl = "hitl"
-    missing = "missing"
-
-
 class JobStatus(str, Enum):
     """Processing status of a document job."""
     pending = "pending"
     processing = "processing"
     completed = "completed"
     failed = "failed"
-    hitl_required = "hitl_required"
 
 
 # ---------------------------------------------------------------------------
-# OCR Stage Models (Stage 2 output)
-# ---------------------------------------------------------------------------
-
-
-class OCRWord(BaseModel):
-    """A single word extracted by the OCR engine with its confidence and position."""
-    text: str
-    confidence: float = Field(..., ge=0.0, le=1.0, description="Word-level OCR confidence (0–1)")
-    bounding_box: list[dict[str, float]] = Field(
-        default_factory=list,
-        description="List of vertex coordinates [{x, y}, ...] defining the word bounding box",
-    )
-
-    model_config = {"from_attributes": True}
-
-
-class OCRResult(BaseModel):
-    """Aggregated OCR output for an entire document (all pages combined).
-
-    This serves as the raw-text verification anchor against which LLM output
-    is matched.
-    """
-    raw_text: str = Field(..., description="Full concatenated OCR text across all pages")
-    words: list[OCRWord] = Field(default_factory=list, description="Per-word OCR extractions")
-    avg_confidence: float = Field(
-        ..., ge=0.0, le=1.0,
-        description="Mean word-level confidence across all words",
-    )
-    low_confidence: bool = Field(
-        ...,
-        description="True if avg_confidence < OCR_CONFIDENCE_THRESHOLD → triggers HITL",
-    )
-
-    model_config = {"from_attributes": True}
-
-
-# ---------------------------------------------------------------------------
-# LLM Extraction Stage Models (Stage 3 output)
+# LLM Extraction Stage Models (Stage 1 output)
 # ---------------------------------------------------------------------------
 
 
 class ExtractedField(BaseModel):
-    """A single field extracted by the LLM from OCR text.
-
-    Represents a raw extraction before normalization or matching.
-    """
+    """A single field extracted by the LLM from document images."""
     name: str = Field(..., description="Field name as extracted by LLM (e.g. 'hemoglobin', 'drug_name')")
     value: str = Field(..., description="Extracted value (e.g. '13.5', 'Amoxicillin')")
     unit: Optional[str] = Field(default=None, description="Unit of measurement if applicable (e.g. 'g/dL')")
@@ -103,11 +55,7 @@ class ExtractedField(BaseModel):
 
 
 class LLMExtractionResult(BaseModel):
-    """Output of the LLM extraction stage (Gemini API).
-
-    Includes retry metadata so downstream stages and observability can track
-    extraction quality.
-    """
+    """Output of the LLM extraction stage (GPT-4o Vision)."""
     fields: list[ExtractedField] = Field(
         default_factory=list,
         description="Structured fields extracted by the LLM",
@@ -118,18 +66,18 @@ class LLMExtractionResult(BaseModel):
     )
     attempt_count: int = Field(
         ..., ge=1,
-        description="Number of LLM attempts made (1–3 before regex fallback)",
+        description="Number of LLM attempts made (1 or 2 with strict retry)",
     )
     fallback_used: bool = Field(
         ...,
-        description="True if regex fallback was activated after all LLM retries failed",
+        description="True if the strict-prefix retry was used",
     )
 
     model_config = {"from_attributes": True}
 
 
 # ---------------------------------------------------------------------------
-# Normalization Stage Models (Stage 4 output)
+# Normalization Stage Models (Stage 2 output)
 # ---------------------------------------------------------------------------
 
 
@@ -149,9 +97,7 @@ class NormalizedField(BaseModel):
 
 
 class NormalizationResult(BaseModel):
-    """Output of the normalization stage. Contains all fields with both original
-    and normalized representations.
-    """
+    """Output of the normalization stage."""
     fields: list[NormalizedField] = Field(
         default_factory=list,
         description="All fields after normalization",
@@ -161,77 +107,17 @@ class NormalizationResult(BaseModel):
 
 
 # ---------------------------------------------------------------------------
-# Matching Stage Models (Stage 5 output)
-# ---------------------------------------------------------------------------
-
-
-class FieldMatchScore(BaseModel):
-    """Per-field matching result: how well an LLM-extracted field aligns with
-    the OCR text using phrase-window fuzzy + semantic similarity.
-    """
-    field_name: str = Field(..., description="Normalized field name")
-    llm_value: str = Field(..., description="Normalized LLM-extracted value")
-    ocr_best_phrase: str = Field(
-        ...,
-        description="Best-matching OCR phrase window (NOT single token)",
-    )
-    fuzzy_score: float = Field(
-        ..., ge=0.0, le=100.0,
-        description="RapidFuzz token_set_ratio score (0–100)",
-    )
-    semantic_score: float = Field(
-        ..., ge=0.0, le=1.0,
-        description="Cosine similarity from sentence-transformer embeddings (0–1)",
-    )
-    combined_score: float = Field(
-        ..., ge=0.0, le=1.0,
-        description="Weighted combination: 0.6 * (fuzzy/100) + 0.4 * semantic",
-    )
-
-    model_config = {"from_attributes": True}
-
-
-class MatchingResult(BaseModel):
-    """Output of the matching stage. Contains per-field match scores used by
-    the confidence scorer downstream.
-    """
-    field_scores: list[FieldMatchScore] = Field(
-        default_factory=list,
-        description="Match scores for each normalized field",
-    )
-
-    model_config = {"from_attributes": True}
-
-
-# ---------------------------------------------------------------------------
-# Confidence / Conflict Stage Models (Stage 6a + 6b output)
+# Final Output Models (Stage 3 output)
 # ---------------------------------------------------------------------------
 
 
 class ScoredField(BaseModel):
-    """A fully scored field with confidence, status, and all data needed for
-    the embedding text and DB persistence.
-
-    Carries forward unit/reference_range from extraction so the conflict
-    resolver can build structured_text_for_embedding without re-querying.
-    """
+    """A normalized field ready for DB persistence and embedding."""
     name: str = Field(..., description="Canonical (normalized) field name")
     value: str = Field(..., description="Normalized field value")
     unit: Optional[str] = Field(default=None, description="Canonical unit")
     reference_range: Optional[str] = Field(default=None, description="Reference range if available")
     collection_date: Optional[str] = Field(default=None, description="Collection date if available")
-    confidence: float = Field(
-        ..., ge=0.0, le=1.0,
-        description="Final weighted confidence: 0.7 * combined_match + 0.3 * ocr_word_conf",
-    )
-    status: FieldStatus = Field(
-        ...,
-        description="AUTO if confidence >= threshold, HITL otherwise",
-    )
-    hitl_reason: Optional[str] = Field(
-        default=None,
-        description="Descriptive reason if status=HITL (includes component scores)",
-    )
 
     model_config = {"from_attributes": True}
 
@@ -247,28 +133,16 @@ class PipelineAOutput(BaseModel):
     document_type: DocumentType = Field(..., description="Detected document type")
     scored_fields: list[ScoredField] = Field(
         default_factory=list,
-        description="All fields with confidence scores and status",
-    )
-    hitl_required: bool = Field(
-        ...,
-        description="True if any HITL trigger condition fired",
-    )
-    hitl_reasons: list[str] = Field(
-        default_factory=list,
-        description="List of reasons HITL was triggered",
+        description="All extracted and normalized fields",
     )
     job_status: JobStatus = Field(
         ...,
-        description="Final job status: COMPLETED or HITL_REQUIRED",
+        description="Final job status: completed or failed",
     )
     structured_text_for_embedding: str = Field(
         ...,
-        description=(
-            "Flattened text for Pipeline B embedding. "
-            "AUTO fields verbatim, HITL fields tagged [LOW_CONFIDENCE]."
-        ),
+        description="Flattened text for Pipeline B embedding.",
     )
-    ocr_latency_ms: Optional[float] = Field(default=None, description="OCR stage latency in ms")
     llm_latency_ms: Optional[float] = Field(default=None, description="LLM extraction stage latency in ms")
     total_pipeline_latency_ms: Optional[float] = Field(
         default=None,

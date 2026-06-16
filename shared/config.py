@@ -17,9 +17,8 @@ class Settings(BaseSettings):
     get_settings() so the .env file is parsed only once.
     """
 
-    # --- Google Cloud / LLM ---
+    # --- LLM ---
     OPENAI_API_KEY: str = ""
-    GOOGLE_APPLICATION_CREDENTIALS: str = ""
 
     # --- Database ---
     DATABASE_URL: str = "mysql+pymysql://hdmis_user:hdmis_pass@localhost:3306/hdmis"
@@ -39,13 +38,6 @@ class Settings(BaseSettings):
 
     # --- Redis / Celery ---
     REDIS_URL: str = "redis://localhost:6379/0"
-
-    # --- Confidence Thresholds ---
-    OCR_CONFIDENCE_THRESHOLD: float = 0.85
-    FIELD_CONFIDENCE_THRESHOLD: float = 0.85
-    LAB_REPORT_CONFIDENCE_THRESHOLD: float = 0.72
-    PRESCRIPTION_CONFIDENCE_THRESHOLD: float = 0.80
-    FUZZY_MATCH_THRESHOLD: int = 85
 
     model_config = SettingsConfigDict(
         env_file=".env",

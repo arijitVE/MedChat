@@ -50,7 +50,6 @@ def chunk_per_field(record: PatientRecord) -> list[QdrantChunk]:
             "ref_low": f.ref_low,
             "ref_high": f.ref_high,
             "is_abnormal": f.is_abnormal,
-            "confidence": f.confidence,
             "chunk_text": chunk_text,
         }
         chunks.append(

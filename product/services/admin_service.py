@@ -346,7 +346,6 @@ def get_admin_settings() -> AdminSettings:
         jwt_expiry_minutes=settings.JWT_EXPIRY_MINUTES,
         rate_limit_storage=settings.RATE_LIMIT_STORAGE_URI,
         openai_configured=bool(settings.OPENAI_API_KEY),
-        google_vision_configured=bool(settings.GOOGLE_APPLICATION_CREDENTIALS),
     )
 
 

@@ -44,10 +44,6 @@ export default function SettingsPage() {
               <dt className="text-clinical-text-secondary">OpenAI configured</dt>
               <dd className="mt-1 font-medium">{settings.data?.openai_configured ? 'Yes' : 'No'}</dd>
             </div>
-            <div>
-              <dt className="text-clinical-text-secondary">Google Vision configured</dt>
-              <dd className="mt-1 font-medium">{settings.data?.google_vision_configured ? 'Yes' : 'No'}</dd>
-            </div>
           </dl>
         </Card>
       </QueryState>

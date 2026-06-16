@@ -12,9 +12,7 @@ from shared.schemas.report import (
     DocumentType,
     JobStatus,
     LLMExtractionResult,
-    MatchingResult,
     NormalizationResult,
-    OCRResult,
     PipelineAOutput,
     ScoredField,
 )
@@ -36,37 +34,25 @@ class PipelineContext(BaseModel):
         description="Output of ingestion stage",
     )
 
-    # --- Stage 2: OCR ---
-    ocr_result: Optional[OCRResult] = Field(
-        default=None,
-        description="Output of OCR stage",
-    )
-
-    # --- Stage 3: LLM Extraction ---
+    # --- Stage 2: LLM Extraction ---
     llm_extraction_result: Optional[LLMExtractionResult] = Field(
         default=None,
         description="Output of LLM extraction stage",
     )
 
-    # --- Stage 4: Normalization ---
+    # --- Stage 3: Normalization ---
     normalization_result: Optional[NormalizationResult] = Field(
         default=None,
         description="Output of normalization stage",
     )
 
-    # --- Stage 5: Matching ---
-    matching_result: Optional[MatchingResult] = Field(
-        default=None,
-        description="Output of matching stage",
-    )
-
-    # --- Stage 6a: Confidence Scoring ---
+    # --- Stage 4: Persistence-ready fields ---
     scored_fields: Optional[list[ScoredField]] = Field(
         default=None,
-        description="Output of confidence scoring stage",
+        description="Output fields ready for persistence",
     )
 
-    # --- Stage 6b: Conflict Resolution & Final Output ---
+    # --- Stage 5: Final Output ---
     pipeline_output: Optional[PipelineAOutput] = Field(
         default=None,
         description="Final assembled output of Pipeline A",
@@ -89,7 +75,6 @@ class PipelineContext(BaseModel):
     )
 
     # --- Observability ---
-    ocr_latency_ms: Optional[float] = Field(default=None, description="OCR stage latency in ms")
     llm_latency_ms: Optional[float] = Field(default=None, description="LLM stage latency in ms")
     total_pipeline_latency_ms: Optional[float] = Field(
         default=None,
@@ -113,7 +98,7 @@ class JobStatusResponse(BaseModel):
     status: JobStatus = Field(..., description="Current job status")
     result: Optional[PipelineAOutput] = Field(
         default=None,
-        description="Full pipeline output (present if COMPLETED or HITL_REQUIRED)",
+        description="Full pipeline output (present if completed)",
     )
     error_message: Optional[str] = Field(
         default=None,
