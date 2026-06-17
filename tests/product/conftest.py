@@ -167,11 +167,11 @@ def make_report(db: Session):
                 """
                 INSERT INTO document_jobs (
                     job_id, patient_id, document_type, file_name, status,
-                    hitl_required, uploaded_at, upload_source, collection_date
+                    uploaded_at, upload_source, collection_date
                 )
                 VALUES (
                     :job_id, :patient_id, :document_type, :file_name, 'uploaded',
-                    FALSE, NOW(), 'system', CURRENT_DATE
+                    NOW(), 'system', CURRENT_DATE
                 )
                 ON DUPLICATE KEY UPDATE job_id = VALUES(job_id)
                 """
@@ -270,7 +270,7 @@ def make_field(db: Session):
             },
         )
         db.flush()
-        field_id = result.lastrowid
+        field_id = result.lastrowid  # type: ignore
         return {
             "id": field_id,
             "job_id": job_id,
@@ -316,7 +316,7 @@ def make_assignment(db: Session):
                 "assigned_by": assigned_by,
                 "status": status,
             },
-        ).mappings().one()
+        )
         db.flush()
         row = db.execute(
             text(

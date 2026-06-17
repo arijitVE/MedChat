@@ -30,7 +30,7 @@ class UserProfile(BaseModel):
 
 
 class DoctorProfile(UserProfile):
-    role: Literal["doctor"] = "doctor"
+    role: Literal["doctor"] = "doctor"  # pyright: ignore[reportIncompatibleVariableOverride]
     license_number: str | None = None
     specialization: str | None = None
     hospital_name: str | None = None
@@ -40,7 +40,7 @@ class DoctorProfile(UserProfile):
 
 
 class PatientProfile(UserProfile):
-    role: Literal["patient"] = "patient"
+    role: Literal["patient"] = "patient"  # pyright: ignore[reportIncompatibleVariableOverride]
     patient_uid: str | None = None
     date_of_birth: date | None = None
     sex: Literal["male", "female", "other"] | None = None

@@ -15,8 +15,6 @@ from product.schemas.notification import NotificationItem, NotificationList
 from product.schemas.user import UserProfile
 from product.schemas.verification import (
     FieldStatus,
-    FieldVerificationRequest,
-    VerificationResponse,
 )
 from product.services import (
     assignment_service,
@@ -24,7 +22,6 @@ from product.services import (
     report_service,
     search_service,
     upload_service,
-    verification_service,
 )
 from shared.db.session import get_db
 
@@ -83,8 +80,8 @@ def _patient_history_search(query_text: str, patient_id, db: Session) -> Patient
     rows = db.execute(
         text(
             f"""
-            SELECT rf.name, rf.value, rf.unit, rf.reference_range, rf.confidence,
-                   rf.status, r.file_name, r.first_uploaded_at
+            SELECT rf.name, rf.value, rf.unit, rf.reference_range,
+                   r.file_name, r.first_uploaded_at
             FROM report_fields rf
             JOIN reports r ON r.job_id = rf.job_id
             WHERE r.patient_id = :patient_id
@@ -111,14 +108,12 @@ def _patient_history_search(query_text: str, patient_id, db: Session) -> Patient
         unit = f" {row['unit']}" if row["unit"] else ""
         report_date = row["first_uploaded_at"].date().isoformat()
         lines.append(
-            f"- {row['name']}: {row['value']}{unit} — {row['file_name']} ({report_date}); "
-            f"status: {row['status']}; confidence: {round(float(row['confidence']) * 100)}%"
+            f"- {row['name']}: {row['value']}{unit} — {row['file_name']} ({report_date})"
         )
         simplified_fields.append(
             {
                 "name": row["name"],
                 "value": f"{row['value']}{unit}",
-                "status": row["status"],
             }
         )
 
@@ -219,25 +214,11 @@ def get_report_fields(
     current_user: UserProfile = Depends(require_role("patient")),
     db: Session = Depends(get_db),
 ):
-    return verification_service.get_field_verification_status(
+    return report_service.get_field_status(
         str(report_id),
         db,
         requesting_user_role=current_user.role,
     )
-
-
-@router.post(
-    "/reports/{report_id}/fields/{field_name}/verify",
-    response_model=VerificationResponse,
-)
-def verify_report_field(
-    report_id: UUID,
-    field_name: str,
-    body: FieldVerificationRequest,
-    current_user: UserProfile = Depends(require_role("patient")),
-    db: Session = Depends(get_db),
-):
-    raise HTTPException(status_code=403, detail="Patients cannot verify medical fields")
 
 
 class PatientAssignmentRequest(BaseModel):
@@ -253,10 +234,8 @@ def create_assignment(
     db: Session = Depends(get_db),
 ):
     if body.assigned_by != "patient":
-        from fastapi import HTTPException
         raise HTTPException(status_code=400, detail="assigned_by must be patient")
     if str(body.patient_id) != str(current_user.user_id):
-        from fastapi import HTTPException
         raise HTTPException(status_code=403, detail="patient_id must match current user")
     return assignment_service.create_assignment(
         body.doctor_id,

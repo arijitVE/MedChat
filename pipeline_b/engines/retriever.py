@@ -65,11 +65,11 @@ def retrieve_by_filter(parsed: ParsedFilter) -> list[dict]:
             conditions.append(
                 FieldCondition(
                     key="numeric_value",
-                    match=MatchValue(value=parsed.value),
+                    match=MatchValue(value=parsed.value),  # type: ignore
                 )
             )
 
-    query_filter = Filter(must=conditions)
+    query_filter = Filter(must=conditions)  # type: ignore
     client = get_client()
     results: list[dict] = []
     offset = None

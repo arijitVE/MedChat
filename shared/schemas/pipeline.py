@@ -22,7 +22,7 @@ class PipelineContext(BaseModel):
     """Accumulates results across pipeline stages.
 
     The orchestrator (process_document.py) builds this up progressively:
-      ingestion → ocr → llm → normalize → match → score → conflict
+      ingestion → llm → normalize
 
     Each stage writes its output into the appropriate field. Downstream stages
     read from previous fields. This avoids passing many positional arguments
@@ -46,13 +46,7 @@ class PipelineContext(BaseModel):
         description="Output of normalization stage",
     )
 
-    # --- Stage 4: Persistence-ready fields ---
-    scored_fields: Optional[list[ScoredField]] = Field(
-        default=None,
-        description="Output fields ready for persistence",
-    )
-
-    # --- Stage 5: Final Output ---
+    # --- Stage 4: Final Output ---
     pipeline_output: Optional[PipelineAOutput] = Field(
         default=None,
         description="Final assembled output of Pipeline A",

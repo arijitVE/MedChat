@@ -10,10 +10,15 @@ if _project_root not in sys.path:
     sys.path.insert(0, _project_root)
 
 # --- Mock structlog ---
-ms = types.ModuleType("structlog")
-ms.stdlib = types.ModuleType("structlog.stdlib")
-ms.contextvars = types.ModuleType("structlog.contextvars")
-ms.processors = types.ModuleType("structlog.processors")
+from typing import Any
+ms: Any = types.ModuleType("structlog")
+ms_stdlib: Any = types.ModuleType("structlog.stdlib")
+ms_contextvars: Any = types.ModuleType("structlog.contextvars")
+ms_processors: Any = types.ModuleType("structlog.processors")
+
+ms.stdlib = ms_stdlib
+ms.contextvars = ms_contextvars
+ms.processors = ms_processors
 
 class ML:
     def info(self, *a, **kw): pass
@@ -21,13 +26,13 @@ class ML:
     def warning(self, *a, **kw): pass
     def debug(self, *a, **kw): pass
 
-ms.stdlib.BoundLogger = ML
-ms.stdlib.LoggerFactory = lambda: None
-ms.stdlib.filter_by_level = ms.stdlib.add_logger_name = ms.stdlib.add_log_level = lambda *a: None
-ms.stdlib.PositionalArgumentsFormatter = lambda: None
-ms.contextvars.merge_contextvars = lambda *a: None
-ms.processors.TimeStamper = lambda **kw: None
-ms.processors.StackInfoRenderer = ms.processors.UnicodeDecoder = ms.processors.JSONRenderer = lambda: None
+ms_stdlib.BoundLogger = ML
+ms_stdlib.LoggerFactory = lambda: None
+ms_stdlib.filter_by_level = ms_stdlib.add_logger_name = ms_stdlib.add_log_level = lambda *a: None
+ms_stdlib.PositionalArgumentsFormatter = lambda: None
+ms_contextvars.merge_contextvars = lambda *a: None
+ms_processors.TimeStamper = lambda **kw: None
+ms_processors.StackInfoRenderer = ms_processors.UnicodeDecoder = ms_processors.JSONRenderer = lambda: None
 ms.configure = lambda **kw: None
 ms.get_logger = lambda name: ML()
 for k in ["structlog", "structlog.stdlib", "structlog.contextvars", "structlog.processors"]:

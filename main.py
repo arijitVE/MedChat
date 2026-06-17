@@ -1,11 +1,7 @@
 from dotenv import load_dotenv
 load_dotenv()
 
-import os
 
-os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = (
-    "/Users/arijitkarmakar/Desktop/vision-key.json"
-)
 
 from pathlib import Path
 import sys

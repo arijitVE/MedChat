@@ -9,7 +9,8 @@ from sqlalchemy import text
 from sqlalchemy.orm import Session
 
 from product.schemas.report import ReportStatusResponse
-from product.services import notification_service, verification_service
+from product.schemas.verification import FieldStatus
+from product.services import notification_service
 from product.services.assignment_service import verify_doctor_patient_access
 
 
@@ -233,6 +234,45 @@ def release_report_to_patient(
     return _report_response(row)
 
 
+def get_field_status(
+    report_id: str | UUID,
+    db: Session,
+    requesting_user_role: str,
+) -> list[FieldStatus]:
+    report = _get_report_row(report_id, db)
+    fields = db.execute(
+        text(
+            """
+            SELECT name, value, unit, reference_range, ref_low, ref_high, numeric_value
+            FROM report_fields
+            WHERE job_id = :job_id
+            ORDER BY id ASC
+            """
+        ),
+        {"job_id": report["job_id"]},
+    ).mappings().all()
+
+    statuses: list[FieldStatus] = []
+    for field in fields:
+        statuses.append(
+            FieldStatus(
+                field_name=field["name"],
+                value=field["value"],
+                display_value=field["value"] or "",
+                unit=field["unit"],
+                reference_range=field["reference_range"],
+                ref_low=field["ref_low"],
+                ref_high=field["ref_high"],
+                numeric_value=field["numeric_value"],
+                patient_verified=False,
+                doctor_verified=False,
+                is_final=False,
+                eda_available=True,
+            )
+        )
+    return statuses
+
+
 def get_report_for_patient(
     report_id: str | UUID,
     patient_id: str | UUID,
@@ -244,7 +284,7 @@ def get_report_for_patient(
     if not report["released_to_patient"]:
         raise HTTPException(status_code=404, detail="Report not found")
 
-    fields = verification_service.get_field_verification_status(
+    fields = get_field_status(
         str(report_id),
         db,
         requesting_user_role="patient",
@@ -263,7 +303,7 @@ def get_report_for_doctor(
     report = _get_report_row(report_id, db)
     if not _doctor_can_access_report(doctor_id, report, db):
         raise HTTPException(status_code=403, detail="Doctor does not have access to this report")
-    fields = verification_service.get_field_verification_status(
+    fields = get_field_status(
         str(report_id),
         db,
         requesting_user_role="doctor",
@@ -279,7 +319,7 @@ def get_report_for_admin(
     db: Session,
 ) -> dict:
     report = _get_report_row(report_id, db)
-    fields = verification_service.get_field_verification_status(
+    fields = get_field_status(
         str(report_id),
         db,
         requesting_user_role="admin",
@@ -395,8 +435,6 @@ def get_patient_sql_analytics(
                        rf.unit,
                        rf.reference_range,
                        rf.collection_date,
-                       rf.confidence,
-                       rf.status,
                        r.report_id,
                        r.file_name,
                        r.lifecycle_status,
@@ -429,7 +467,7 @@ def get_patient_sql_analytics(
                   {visibility_clause}
             )
             SELECT patient_id, job_id, name, value, numeric_value, unit,
-                   reference_range, collection_date, confidence, status,
+                   reference_range, collection_date,
                    report_id, file_name, lifecycle_status, first_uploaded_at,
                    last_edited_at, raw_report_date
             FROM ranked
@@ -490,7 +528,6 @@ def get_patient_sql_analytics(
                 "is_abnormal": row["is_abnormal"],
                 "report_id": str(row["report_id"]),
                 "report_name": row["file_name"],
-                "confidence": row["confidence"],
             }
             for row in field_rows
         ]
@@ -522,7 +559,6 @@ def get_patient_sql_analytics(
             "reference_range": latest["reference_range"],
             "ref_low": latest_ref_low,
             "ref_high": latest_ref_high,
-            "confidence": latest["confidence"],
             "status": latest_status,
             "is_abnormal": latest_status in {"low", "high"},
         }
@@ -599,7 +635,7 @@ def get_report_eda(
     if not report["released_to_patient"]:
         raise HTTPException(status_code=404, detail="Report not found")
 
-    fields = verification_service.get_field_verification_status(
+    fields = get_field_status(
         str(report_id),
         db,
         requesting_user_role="patient",

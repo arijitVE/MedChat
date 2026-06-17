@@ -94,7 +94,6 @@ def test_full_upload_flow():
         document_type="lab_report",
         file_name="report.pdf",
         status=JobStatus.processing.value,
-        hitl_required=False,
         uploaded_at=datetime.datetime.now(datetime.timezone.utc)
     )
     db.commit()
@@ -105,7 +104,6 @@ def test_full_upload_flow():
         db,
         job_id,
         status=JobStatus.completed.value,
-        hitl_required=False,
     )
     db.commit()
     print("✅ Step 4b: Final status update succeeded (patient_id preserved)")

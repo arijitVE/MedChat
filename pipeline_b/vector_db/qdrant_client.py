@@ -111,7 +111,7 @@ def search_fields(
     query_filter = Filter(must=conditions) if conditions else None
     client = get_client()
     if hasattr(client, "search"):
-        return client.search(
+        return client.search(  # type: ignore
             collection_name=COLLECTIONS["fields"],
             query_vector=query_vector,
             query_filter=query_filter,

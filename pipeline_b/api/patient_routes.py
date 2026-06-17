@@ -15,10 +15,15 @@ router = APIRouter(prefix="/api/patient", tags=["patient"])
 
 @router.post("/query")
 async def patient_query(body: UserQuery, db=Depends(get_db)):
+    if not body.patient_id:
+        raise HTTPException(status_code=422, detail="patient_id is required for patient queries")
+
+    patient_id: str = body.patient_id
+
     classified = classify(body.text, PersonaType.patient)
-    classified.patient_id = body.patient_id
+    classified.patient_id = patient_id
     classified.filters = body.filters
-    return handle_patient_query(classified, body.patient_id, db)
+    return handle_patient_query(classified, patient_id, db)
 
 
 @router.get("/records")

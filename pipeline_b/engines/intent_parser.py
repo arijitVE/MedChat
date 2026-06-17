@@ -52,7 +52,7 @@ def parse_retrieval_intent(query: str) -> ParsedFilter:
         response_format={"type": "json_object"},
     )
 
-    result = json.loads(response.choices[0].message.content)
+    result = json.loads(response.choices[0].message.content or "{}")
     field_name = _normalize_parsed_field(result["field_name"])
     parsed = ParsedFilter(
         field_name=field_name,

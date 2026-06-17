@@ -54,7 +54,7 @@ def upload_document(
         file_name=file.filename
     )
     
-    process_document_task.delay(job_id, patient_id, file_bytes.hex(), doc_type)
+    process_document_task.delay(job_id, patient_id, file_bytes.hex(), doc_type)  # type: ignore
     
     return UploadResponse(job_id=job_id, status=JobStatus.pending.value)
 

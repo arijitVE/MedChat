@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException
 
 from pipeline_b.engines.query_classifier import classify
 from pipeline_b.engines.retriever import retrieve_by_filter
@@ -16,17 +16,22 @@ router = APIRouter(prefix="/api/doctor", tags=["doctor"])
 
 @router.post("/query")
 async def doctor_query(body: UserQuery, db=Depends(get_db)):
+    if not body.patient_id:
+        raise HTTPException(status_code=422, detail="patient_id is required for doctor queries")
+
+    patient_id: str = body.patient_id
+
     classified = classify(body.text, PersonaType.doctor)
-    classified.patient_id = body.patient_id
+    classified.patient_id = patient_id
     classified.filters = body.filters
 
     if classified.query_type == QueryType.retrieval:
         return handle_retrieval_query(classified, db)
     if classified.query_type == QueryType.reasoning:
-        return handle_reasoning_query(classified, body.patient_id, db)
+        return handle_reasoning_query(classified, patient_id, db)
     if classified.query_type == QueryType.trend:
-        return handle_trend_query(classified, body.patient_id, db)
-    return handle_reasoning_query(classified, body.patient_id, db)
+        return handle_trend_query(classified, patient_id, db)
+    return handle_reasoning_query(classified, patient_id, db)
 
 
 @router.get("/patient/{patient_id}/summary")

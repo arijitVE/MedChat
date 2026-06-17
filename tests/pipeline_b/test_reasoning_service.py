@@ -24,8 +24,6 @@ def _field(index: int, is_abnormal: bool | None = None) -> ClinicalField:
         reference_range="1 - 10",
         ref_low=1.0,
         ref_high=10.0,
-        confidence=index / 20,
-        status="auto",
         is_abnormal=is_abnormal,
     )
 
@@ -36,7 +34,6 @@ def _record(fields: list[ClinicalField]) -> PatientRecord:
         job_id="job-1",
         document_type="lab_report",
         processed_at=datetime(2025, 1, 2, tzinfo=timezone.utc),
-        hitl_required=False,
         structured_text="",
         fields=fields,
     )
@@ -169,7 +166,7 @@ def test_context_capped_at_15_fields():
 
 def test_cached_result_returned(monkeypatch):
     query = _query()
-    key = response_cache.make_cache_key(query.text, "patient-1", "reasoning")
+    key = response_cache.make_cache_key(f"{query.text}|filters={{}}", "patient-1", "reasoning")
     response_cache.set_cache(
         key,
         {

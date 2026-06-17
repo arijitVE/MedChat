@@ -1,5 +1,7 @@
 import time
 
+from sqlalchemy.orm import Session
+
 from langchain_core.prompts import ChatPromptTemplate
 
 from pipeline_b.adapters.pipeline_a_adapter import get_all_records_for_patient
@@ -31,15 +33,16 @@ def _generate_analytics_insight(abnormal_fields: list) -> tuple[str, float]:
         ]
     )
     insight_chain = insight_prompt | _get_llm()
-    insight = insight_chain.invoke({"context": insight_context}).content
+    content = insight_chain.invoke({"context": insight_context}).content
+    insight = content if isinstance(content, str) else str(content)
     return insight or "", round((time.time() - t_start) * 1000, 2)
 
 
-def get_patient_analytics(patient_id: str, db) -> AnalyticsResult:
+def get_patient_analytics(patient_id: str, db: Session) -> AnalyticsResult:
     cache_key = make_cache_key("analytics", patient_id, "analytics")
     cached = get_cached(cache_key)
     if cached:
-        return AnalyticsResult(**{**cached, "cached": True})
+        return AnalyticsResult.model_validate({**cached, "cached": True})
 
     records = get_all_records_for_patient(patient_id, db)
     all_fields = [f for r in records for f in r.fields]

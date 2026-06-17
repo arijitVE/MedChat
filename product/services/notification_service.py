@@ -65,18 +65,13 @@ def notify_report_uploaded(patient_id, doctor_id, report_id, db: Session) -> Non
     )
 
 
-def notify_report_processed(patient_id, report_id, hitl_required, db: Session) -> None:
-    message = (
-        "Your report needs verification before release."
-        if hitl_required
-        else "Your report has been processed."
-    )
+def notify_report_processed(patient_id, report_id, db: Session) -> None:
     create_notification(
         patient_id,
         None,
         "REPORT_PROCESSED",
         "Report processed",
-        message,
+        "Your report has been processed.",
         report_id,
         db,
     )

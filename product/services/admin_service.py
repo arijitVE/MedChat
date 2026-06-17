@@ -508,7 +508,7 @@ def get_hitl_queue(db: Session) -> list[HITLQueueItem]:
             """
             SELECT r.report_id, r.job_id, r.patient_id, r.doctor_id,
                    r.file_name, r.lifecycle_status,
-                   SUM(CASE WHEN rf.status = 'hitl' THEN 1 ELSE 0 END) AS hitl_count,
+                   COUNT(rf.id) AS hitl_count,
                    r.first_uploaded_at
             FROM reports r
             LEFT JOIN report_fields rf ON rf.job_id = r.job_id

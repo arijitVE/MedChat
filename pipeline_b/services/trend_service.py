@@ -1,3 +1,5 @@
+from sqlalchemy.orm import Session
+
 from pipeline_b.cache.response_cache import get_cached, make_cache_key, set_cache
 from pipeline_b.engines.intent_parser import parse_retrieval_intent
 from pipeline_b.engines.trend_analyzer import analyze_trend
@@ -26,12 +28,12 @@ def _extract_field_name(query_text: str) -> str:
 def handle_trend_query(
     query: ClassifiedQuery,
     patient_id: str,
-    db,
+    db: Session,
 ) -> TrendResult:
     cache_key = make_cache_key(query.text, patient_id, "trend")
     cached = get_cached(cache_key)
     if cached:
-        return TrendResult(**{**cached, "cached": True})
+        return TrendResult.model_validate({**cached, "cached": True})
 
     field_name = _extract_field_name(query.text)
     result = analyze_trend(patient_id, field_name)

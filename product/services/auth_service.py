@@ -36,11 +36,14 @@ def _write_audit(
     )
 
 
-def _token_response(user_id: UUID, role: str, email: str) -> TokenResponse:
+def _token_response(user_id: UUID | str, role: str, email: str) -> TokenResponse:
+    from typing import Literal, cast
+    uuid_user_id = UUID(str(user_id)) if isinstance(user_id, str) else user_id
+    role_lit = cast(Literal["doctor", "patient", "admin"], role)
     return TokenResponse(
-        access_token=create_access_token(str(user_id), role, email),
-        user_id=user_id,
-        role=role,
+        access_token=create_access_token(str(uuid_user_id), role_lit, email),
+        user_id=uuid_user_id,
+        role=role_lit,
     )
 
 

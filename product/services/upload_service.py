@@ -199,7 +199,7 @@ def _resolve_doctor_upload_patient(
         ).mappings().first()
         if row is None:
             raise HTTPException(status_code=404, detail="Patient UID not found")
-        return row["user_id"], row["patient_uid"]
+        return UUID(str(row["user_id"])), row["patient_uid"]
 
     if not patient_email:
         raise HTTPException(status_code=400, detail="patient_uid or patient_email is required")
@@ -218,10 +218,11 @@ def _resolve_doctor_upload_patient(
     if row is not None:
         if row["is_registered"]:
             raise HTTPException(status_code=409, detail="Email already registered. Use Patient-ID instead.")
-        return row["user_id"], row["patient_uid"]
+        return UUID(str(row["user_id"])), row["patient_uid"]
 
     generated_uid = _generate_patient_uid(db)
-    user_id = str(uuid4())
+    user_uuid = uuid4()
+    user_id = str(user_uuid)
     db.execute(
         text(
             """
@@ -242,7 +243,7 @@ def _resolve_doctor_upload_patient(
             "patient_uid": generated_uid,
         },
     )
-    return user_id, generated_uid
+    return user_uuid, generated_uid
 
 
 def _ensure_doctor_upload_assignment(db: Session, doctor_id, patient_id) -> None:
@@ -858,7 +859,7 @@ async def upload_report(
             file_name=file.filename or original_name,
         )
 
-    response = {
+    response: dict[str, object] = {
         "report_id": str(report_id),
         "status": "processing",
         "patient_uid": resolved_patient_uid,
@@ -1052,7 +1053,7 @@ async def reupload_report(
             db_url=settings.DATABASE_URL,
             file_name=file.filename or original_name,
         )
-    response = {"report_id": str(report_id), "status": "processing"}
+    response: dict[str, object] = {"report_id": str(report_id), "status": "processing"}
     if metadata_duplicate is not None:
         response["duplicate_warning"] = _duplicate_warning(metadata_duplicate)
     return response

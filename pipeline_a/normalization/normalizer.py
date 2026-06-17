@@ -1,8 +1,7 @@
 # pipeline_a/normalization/normalizer.py — Synonym expansion, unit/value canonicalization
 #
 # Stage 4 of Pipeline A. Canonicalizes field names, values, and units from
-# LLM extraction output before comparison in the matching stage.
-# This removes 60–70% of false conflicts downstream.
+# LLM extraction output before persistence.
 #
 # CRITICAL: No synonym maps are defined in this file.
 # MEDICAL_SYNONYMS and UNIT_SYNONYMS live in shared/utils/medical_dict.py
@@ -131,9 +130,6 @@ def run_normalization(
     4. Validate field using shared.utils.validators.validate_field
     5. Preserve original values alongside normalized in NormalizedField
 
-    Fields that fail validation are still included in the output (the
-    confidence scorer will handle them downstream) but a warning is logged.
-
     Args:
         llm_result: Output from the LLM extraction stage.
         document_type: Document type for context-aware field validation.
@@ -168,7 +164,7 @@ def run_normalization(
                 original_name=original_name,
                 value=canonical_value,
             )
-            # Still include the field — downstream stages handle confidence
+            # Still include the field even if validation fails
 
         # --- Step 5: Build NormalizedField (preserving originals) ---
         normalized_fields.append(

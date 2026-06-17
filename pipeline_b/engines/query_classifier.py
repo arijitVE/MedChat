@@ -111,7 +111,7 @@ def _embedding_classify(query_vec: list[float]) -> tuple[QueryType, float]:
     examples = _get_example_embeddings()
     best_type, best_score = QueryType.reasoning, 0.0
     for qt, vecs in examples.items():
-        scores = cosine_similarity([query_vec], vecs)[0]
+        scores = cosine_similarity(np.asarray([query_vec]), np.asarray(vecs))[0]  # type: ignore
         score = float(np.max(scores))
         if score > best_score:
             best_score = score
@@ -141,7 +141,7 @@ def _llm_classify(query: str, persona: PersonaType) -> ClassifiedQuery:
         temperature=0.0,
         response_format={"type": "json_object"},
     )
-    result = json.loads(response.choices[0].message.content)
+    result = json.loads(response.choices[0].message.content or "{}")
     return ClassifiedQuery(
         text=query,
         persona=persona,
@@ -159,7 +159,7 @@ def classify(query: str, persona: PersonaType) -> ClassifiedQuery:
         qt: sum(1 for kw in kws if kw in query_lower)
         for qt, kws in RULES.items()
     }
-    best_rule = max(scores, key=scores.get)
+    best_rule = max(scores, key=lambda k: scores[k])
     if scores[best_rule] >= 2:
         result = ClassifiedQuery(
             text=query,

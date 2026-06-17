@@ -52,6 +52,8 @@ class TestSignupCreatesUser:
             role="doctor",
             full_name="Dr. Test",
             license_number="LIC-001",
+            specialization="General",
+            phone="1234567890",
         )
         token_resp = signup(body, db)
 
@@ -64,7 +66,7 @@ class TestSignupCreatesUser:
         ).mappings().one()
         assert row["role"] == "doctor"
         assert row["full_name"] == "Dr. Test"
-        assert row["is_registered"] is True
+        assert bool(row["is_registered"]) is True
 
     def test_patient_signup_generates_patient_uid(self, db):
         body = SignupRequest(
@@ -85,7 +87,13 @@ class TestSignupCreatesUser:
 
     def test_duplicate_email_raises_409(self, db):
         body = SignupRequest(
-            email="dup@test.local", password="pass1", role="doctor", full_name="Doc"
+            email="dup@test.local",
+            password="pass1",
+            role="doctor",
+            full_name="Doc",
+            license_number="LIC-002",
+            specialization="Cardiology",
+            phone="1234567890",
         )
         signup(body, db)
 
@@ -117,7 +125,13 @@ class TestLogin:
     def test_wrong_password_returns_401(self, db):
         signup(
             SignupRequest(
-                email="wp@test.local", password="correct", role="doctor", full_name="D"
+                email="wp@test.local",
+                password="correct",
+                role="doctor",
+                full_name="D",
+                license_number="LIC-003",
+                specialization="Pediatrics",
+                phone="1234567890",
             ),
             db,
         )
@@ -163,7 +177,7 @@ class TestPreRegisteredPatientActivation:
             text("SELECT is_registered, full_name FROM users WHERE user_id = :uid"),
             {"uid": pre_reg["user_id"]},
         ).mappings().one()
-        assert row["is_registered"] is True
+        assert bool(row["is_registered"]) is True
         assert row["full_name"] == "Activated Patient"
 
         # Audit entries written
@@ -201,7 +215,7 @@ class TestPreRegisteredPatientActivation:
             text("SELECT is_registered FROM users WHERE user_id = :uid"),
             {"uid": pre_reg["user_id"]},
         ).mappings().one()
-        assert row["is_registered"] is True
+        assert bool(row["is_registered"]) is True
 
     def test_claim_wrong_email_raises_400(self, db, make_user):
         """patient_uid claim rejects email mismatch."""

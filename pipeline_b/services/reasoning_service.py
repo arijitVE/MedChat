@@ -1,5 +1,7 @@
-import time
 import json
+import time
+
+from sqlalchemy.orm import Session
 
 from pipeline_b.adapters.pipeline_a_adapter import get_all_records_for_patient
 from pipeline_b.cache.response_cache import get_cached, make_cache_key, set_cache
@@ -37,10 +39,6 @@ def _filter_fields(fields: list[ClinicalField], filters: dict | None) -> list[Cl
     scoped_fields = fields
     if filters.get("abnormal_only") is True:
         scoped_fields = [field for field in scoped_fields if field.is_abnormal is True]
-    if filters.get("low_confidence_only") is True:
-        scoped_fields = []
-    if filters.get("verification_needed_only") is True:
-        scoped_fields = []
 
     return scoped_fields
 
@@ -58,13 +56,13 @@ def _max_fields(filters: dict | None) -> int:
 def handle_reasoning_query(
     query: ClassifiedQuery,
     patient_id: str,
-    db,
+    db: Session,
 ) -> ReasoningResult:
     cache_text = f"{query.text}|filters={json.dumps(query.filters or {}, sort_keys=True)}"
     cache_key = make_cache_key(cache_text, patient_id, "reasoning")
     cached = get_cached(cache_key)
     if cached:
-        return ReasoningResult(**{**cached, "cached": True})
+        return ReasoningResult.model_validate({**cached, "cached": True})
 
     records = _filter_records(get_all_records_for_patient(patient_id, db), query.filters)
     all_fields = _filter_fields([f for r in records for f in r.fields], query.filters)

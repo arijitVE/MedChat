@@ -100,6 +100,11 @@ def upsert_job(db: Session, job_id: str, **fields: Any) -> None:
     INSERT_ONLY_COLUMNS = {"patient_id", "document_type", "file_name"}
 
     insert_values: dict[str, Any] = {"job_id": job_id, **fields}
+    if "patient_id" not in insert_values:
+        insert_values["patient_id"] = "dummy_patient"
+    if "document_type" not in insert_values:
+        insert_values["document_type"] = "unknown"
+
 
     update_values: dict[str, Any] = {
         k: v for k, v in fields.items()

@@ -72,6 +72,16 @@ class ReportField(Base):
         nullable=True,
         comment="Parsed numeric value for trend analytics",
     )
+    ref_low: Mapped[Optional[float]] = mapped_column(
+        Float,
+        nullable=True,
+        comment="Lower bound of reference range",
+    )
+    ref_high: Mapped[Optional[float]] = mapped_column(
+        Float,
+        nullable=True,
+        comment="Upper bound of reference range",
+    )
 
     # ------ Constraints ------
     __table_args__ = (
@@ -123,6 +133,8 @@ def upsert_fields(
             "unit": getattr(field, "unit", None),
             "reference_range": getattr(field, "reference_range", None),
             "collection_date": getattr(field, "collection_date", None),
+            "ref_low": getattr(field, "ref_low", None),
+            "ref_high": getattr(field, "ref_high", None),
         }
 
         update_values = {
