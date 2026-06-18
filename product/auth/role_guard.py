@@ -11,14 +11,3 @@ def require_role(*roles: str):
         return current_user
 
     return guard
-
-
-async def require_approved_doctor(
-    current_user: UserProfile = Depends(require_role("doctor")),
-) -> UserProfile:
-    if current_user.verification_status != "approved":
-        raise HTTPException(
-            status_code=403,
-            detail="Doctor account verification is pending",
-        )
-    return current_user

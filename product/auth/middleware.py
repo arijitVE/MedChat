@@ -2,39 +2,14 @@ from fastapi import Depends, HTTPException
 from fastapi.security import OAuth2PasswordBearer
 from sqlalchemy.orm import Session
 from uuid import UUID
+from datetime import datetime
 
 from product.auth.jwt_handler import decode_access_token
 from product.schemas.user import UserProfile
 from shared.db.session import get_db
-from sqlalchemy import text
 
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/auth/login")
-
-
-def fetch_user_by_id(user_id: str, db: Session) -> UserProfile | None:
-    try:
-        parsed_user_id = UUID(user_id)
-    except ValueError:
-        raise HTTPException(status_code=401, detail="Invalid token")
-
-    row = db.execute(
-        text(
-            """
-            SELECT user_id, email, role, full_name, phone, age, gender,
-                   blood_group, allergies, chronic_conditions, address,
-                   emergency_contact, last_login, is_registered, is_active,
-                   verification_status, verification_rejection_reason,
-                   created_at, updated_at
-            FROM users
-            WHERE user_id = :user_id
-            """
-        ),
-        {"user_id": parsed_user_id},
-    ).mappings().first()
-    if row is None:
-        return None
-    return UserProfile(**row)
 
 
 async def get_current_user(
@@ -43,12 +18,36 @@ async def get_current_user(
 ) -> UserProfile:
     payload = decode_access_token(token)
     user_id = payload.get("sub")
-    if not user_id:
+    role = payload.get("role")
+    email = payload.get("email")
+
+    if not user_id or not role or not email:
         raise HTTPException(status_code=401, detail="Invalid token")
 
-    user = fetch_user_by_id(user_id, db)
-    if user is None:
-        raise HTTPException(status_code=401, detail="Invalid token")
-    if not user.is_active:
-        raise HTTPException(status_code=403, detail="Inactive user")
-    return user
+    # Hardcoded .env admin — no DB row
+    if user_id == "00000000-0000-0000-0000-000000000001":
+        from typing import Literal, cast
+        return UserProfile(
+            user_id=UUID(user_id),
+            email=email,
+            role=cast(Literal["admin", "user"], role),
+            full_name="Administrator",
+            created_at=datetime.utcnow(),
+            updated_at=datetime.utcnow(),
+        )
+
+    # DB user
+    from shared.db.models.user import User
+    db_user = db.query(User).filter(User.user_id == user_id).first()
+    if db_user is None:
+        raise HTTPException(status_code=401, detail="User not found")
+
+    from typing import Literal, cast
+    return UserProfile(
+        user_id=UUID(db_user.user_id),
+        email=db_user.email,
+        role=cast(Literal["admin", "user"], db_user.role),
+        full_name=db_user.full_name,
+        created_at=db_user.created_at,
+        updated_at=db_user.updated_at,
+    )

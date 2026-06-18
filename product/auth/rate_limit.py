@@ -1,10 +1,8 @@
 import time
 from collections import defaultdict, deque
-from json import dumps
 from typing import Protocol
 
 from fastapi import HTTPException, Request
-from sqlalchemy import text
 from sqlalchemy.orm import Session
 
 from shared.config import get_settings
@@ -67,40 +65,18 @@ def _parse_limit(limit: str) -> tuple[int, int]:
 def check_rate_limit(
     key: str,
     limit: str,
-    user_id: str | None = None,
     action: str = "RATE_LIMITED",
-    db: Session | None = None,
 ) -> None:
     max_attempts, window_seconds = _parse_limit(limit)
     backend = _get_backend()
-    now = time.time()
-    bucket = getattr(backend, "_attempts", {}).get(key)
     if not backend.hit(key, max_attempts, window_seconds):
-        if db is not None:
-            db.execute(
-                text(
-                    """
-                    INSERT INTO audit_log (user_id, action, entity_type, entity_id, metadata)
-                    VALUES (:user_id, :action, 'rate_limit', :entity_id, :metadata)
-                    """
-                ),
-                {
-                    "user_id": user_id,
-                    "action": action,
-                    "entity_id": key,
-                    "metadata": dumps({"key": key, "limit": limit}),
-                },
-            )
         logger.warning(
             "rate_limited",
             action=action,
-            user_id=user_id,
             key=key,
             limit=limit,
         )
         raise HTTPException(status_code=429, detail="Too many requests")
-    if bucket is not None and (not bucket or bucket[-1] != now):
-        pass
 
 
 def get_client_ip(request: Request) -> str:
@@ -117,15 +93,4 @@ def check_login_rate_limit(request: Request, db: Session | None = None) -> None:
         key=f"login:{get_client_ip(request)}",
         limit=LOGIN_RATE_LIMIT,
         action="RATE_LIMITED",
-        db=db,
-    )
-
-
-def check_upload_rate_limit(user_id: str, db: Session | None = None) -> None:
-    check_rate_limit(
-        key=f"upload:{user_id}",
-        limit=UPLOAD_RATE_LIMIT,
-        user_id=user_id,
-        action="RATE_LIMITED",
-        db=db,
     )

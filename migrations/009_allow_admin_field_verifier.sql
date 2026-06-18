@@ -1,1 +1,0 @@
--- Consolidated into 001_product_layer_schema.sql for MySQL.

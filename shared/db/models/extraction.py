@@ -6,7 +6,8 @@ from __future__ import annotations
 
 from typing import Any, Optional
 
-from sqlalchemy import Float, ForeignKey, Integer, String, Text, UniqueConstraint
+from datetime import datetime
+from sqlalchemy import DateTime, Float, ForeignKey, Integer, String, Text, UniqueConstraint
 from sqlalchemy.orm import Mapped, Session, mapped_column
 
 from shared.db.base import Base
@@ -32,18 +33,12 @@ class ReportField(Base):
     )
 
     # ------ Foreign Key ------
-    job_id: Mapped[str] = mapped_column(
+    case_id: Mapped[str] = mapped_column(
         String(64),
-        ForeignKey("document_jobs.job_id", ondelete="CASCADE"),
+        ForeignKey("cases.id", ondelete="CASCADE"),
         nullable=False,
         index=True,
-        comment="FK → document_jobs (cascading delete)",
-    )
-
-    # ------ Denormalised for query performance ------
-    patient_id: Mapped[str] = mapped_column(
-        String(128), index=True,
-        comment="Patient identifier (denormalised from document_jobs)",
+        comment="FK → cases (cascading delete)",
     )
 
     # ------ Field Data ------
@@ -85,11 +80,26 @@ class ReportField(Base):
 
     # ------ Constraints ------
     __table_args__ = (
-        UniqueConstraint("job_id", "name", name="uq_report_fields_job_id_name"),
+        UniqueConstraint("case_id", "name", name="uq_report_fields_case_id_name"),
     )
 
     def __repr__(self) -> str:
-        return f"<ReportField job_id={self.job_id!r} name={self.name!r}>"
+        return f"<ReportField case_id={self.case_id!r} name={self.name!r}>"
+
+
+class OCRPage(Base):
+    __tablename__ = "ocr_pages"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    document_id: Mapped[str] = mapped_column(String(64), ForeignKey("documents.id", ondelete="CASCADE"), nullable=False, index=True)
+    page_no: Mapped[int] = mapped_column(Integer, nullable=False)
+    extractor: Mapped[str] = mapped_column(String(64), nullable=False, comment="'pymupdf' | 'pdfplumber' | 'gpt4o_vision'")
+    extracted_text: Mapped[str] = mapped_column(Text, nullable=False)
+    
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=datetime.utcnow)
+
+    def __repr__(self) -> str:
+        return f"<OCRPage doc={self.document_id} page={self.page_no} extractor={self.extractor}>"
 
 
 # ---------------------------------------------------------------------------
@@ -99,9 +109,8 @@ class ReportField(Base):
 
 def upsert_fields(
     db: Session,
-    job_id: str,
+    case_id: str,
     scored_fields: list[Any],
-    patient_id: str | None = None,
 ) -> None:
     """Bulk upsert extracted fields into report_fields.
 
@@ -109,7 +118,7 @@ def upsert_fields(
 
     Args:
         db: SQLAlchemy session.
-        job_id: The parent job's unique identifier.
+        case_id: The parent case's unique identifier.
         scored_fields: List of ScoredField Pydantic models with at minimum
                        name, value, unit, reference_range, collection_date.
 
@@ -122,11 +131,8 @@ def upsert_fields(
         return
 
     for field in scored_fields:
-        field_patient_id = patient_id or getattr(field, "patient_id", "")
-
         values = {
-            "job_id": job_id,
-            "patient_id": field_patient_id,
+            "case_id": case_id,
             "name": field.name,
             "value": field.value,
             "numeric_value": _parse_numeric_value(field.value),
@@ -139,7 +145,7 @@ def upsert_fields(
 
         update_values = {
             k: v for k, v in values.items()
-            if k not in ("job_id", "name")  # don't update the conflict keys
+            if k not in ("case_id", "name")  # don't update the conflict keys
         }
 
         stmt = build_upsert(
@@ -147,8 +153,8 @@ def upsert_fields(
             ReportField,
             values,
             update_values,
-            index_elements=["job_id", "name"],
-            constraint="uq_report_fields_job_id_name",
+            index_elements=["case_id", "name"],
+            constraint="uq_report_fields_case_id_name",
         )
         db.execute(stmt)
 

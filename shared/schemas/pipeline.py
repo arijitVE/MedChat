@@ -1,6 +1,9 @@
-# shared/schemas/pipeline.py — Unified schema for passing data between pipeline stages.
-# Cross-stage wrapper types that bundle intermediate results for the orchestrator.
+"""
+shared/schemas/pipeline.py — Internal pipeline context wrapper.
 
+Used only by process_document.py orchestrator to accumulate results
+across stages: ingestion → LLM extraction → normalization → output.
+"""
 from __future__ import annotations
 
 from typing import Optional
@@ -14,7 +17,6 @@ from shared.schemas.report import (
     LLMExtractionResult,
     NormalizationResult,
     PipelineAOutput,
-    ScoredField,
 )
 
 
@@ -54,7 +56,7 @@ class PipelineContext(BaseModel):
 
     # --- Metadata ---
     job_id: str = Field(..., description="Unique job identifier")
-    patient_id: str = Field(..., description="Patient identifier")
+    case_id: str = Field(..., description="Case identifier")
     document_type: DocumentType = Field(
         default=DocumentType.unknown,
         description="Detected document type",
@@ -78,16 +80,8 @@ class PipelineContext(BaseModel):
     model_config = {"from_attributes": True}
 
 
-class UploadResponse(BaseModel):
-    """Response returned by POST /api/v1/documents/upload."""
-    job_id: str = Field(..., description="Assigned job ID")
-    status: JobStatus = Field(..., description="Initial job status (PENDING)")
-
-    model_config = {"from_attributes": True}
-
-
 class JobStatusResponse(BaseModel):
-    """Response returned by GET /api/v1/documents/{job_id}/status."""
+    """Response returned by GET /api/v1/cases/{case_id}/jobs/{job_id}."""
     job_id: str = Field(..., description="Job ID")
     status: JobStatus = Field(..., description="Current job status")
     result: Optional[PipelineAOutput] = Field(

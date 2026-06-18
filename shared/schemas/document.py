@@ -1,7 +1,4 @@
 # shared/schemas/document.py — Input/output schema for the ingestion layer.
-# IngestedDocument is the first typed contract in the pipeline — every stage
-# downstream receives typed Pydantic models, never raw dicts.
-
 from __future__ import annotations
 
 from pydantic import BaseModel, Field
@@ -10,18 +7,14 @@ from shared.schemas.report import DocumentType
 
 
 class IngestedDocument(BaseModel):
-    """Output of the ingestion stage (Stage 1).
-
-    Created after MIME validation and document-type detection.
-    Carries the raw file bytes forward to LLM extraction.
-    """
-    job_id: str = Field(
+    """Output of the ingestion stage (Stage 1)."""
+    case_id: str = Field(
         ...,
-        description="Unique job identifier (UUID4 string), generated at ingestion",
+        description="Case identifier",
     )
-    patient_id: str = Field(
+    document_id: str = Field(
         ...,
-        description="Patient identifier provided by the caller",
+        description="Document identifier",
     )
     file_bytes: bytes = Field(
         ...,

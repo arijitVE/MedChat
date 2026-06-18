@@ -28,6 +28,8 @@ class Settings(BaseSettings):
     JWT_ALGORITHM: str = "HS256"
     JWT_EXPIRY_MINUTES: int = 1440
     JWT_REFRESH_EXPIRY_DAYS: int = 7
+    ADMIN_USERNAME: str = "admin"
+    ADMIN_PASSWORD: str = "admin123"
     RATE_LIMIT_STORAGE_URI: str = "memory://"
     STORAGE_PATH: str = "./storage"
     MAX_FILE_SIZE_MB: int = 50

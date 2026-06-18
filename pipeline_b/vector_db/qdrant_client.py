@@ -1,40 +1,18 @@
-import atexit
-
+# pipeline_b/vector_db/qdrant_client.py
 from qdrant_client import QdrantClient
-from qdrant_client.models import (
-    Distance,
-    FieldCondition,
-    Filter,
-    MatchValue,
-    PointStruct,
-    Range,
-    VectorParams,
-)
-
-from pipeline_b.chunking.chunker import QdrantChunk
+from qdrant_client.models import Distance, VectorParams, PointStruct, Filter, FieldCondition, MatchValue
 from shared.config import get_settings
 
-
-COLLECTIONS = {"fields": "HDMIS_fields", "documents": "HDMIS_documents"}
+COLLECTIONS = {
+    "raw_chunks": "raw_chunks",
+    "structured_medical_data": "structured_medical_data"
+}
 VECTOR_SIZE = 384
 
-_client: QdrantClient | None = None
-
-
-def _close_client() -> None:
-    global _client
-
-    if _client is not None:
-        _client.close()
-        _client = None
-
-
-atexit.register(_close_client)
-
+_client = None
 
 def get_client() -> QdrantClient:
     global _client
-
     if _client is None:
         settings = get_settings()
         if settings.QDRANT_URL:
@@ -42,7 +20,6 @@ def get_client() -> QdrantClient:
         else:
             _client = QdrantClient(path=settings.QDRANT_STORAGE_PATH)
     return _client
-
 
 def ensure_collections_exist():
     client = get_client()
@@ -53,101 +30,28 @@ def ensure_collections_exist():
                 vectors_config=VectorParams(size=VECTOR_SIZE, distance=Distance.COSINE),
             )
 
-
-def upsert_chunks(
-    chunks: list[QdrantChunk],
-    vectors: list[list[float]],
-    collection: str,
-):
+def upsert_vectors(collection: str, points: list[PointStruct]):
+    if not points: return
     client = get_client()
-    points = [
-        PointStruct(id=int(chunk.chunk_id), vector=vec, payload=chunk.payload)
-        for chunk, vec in zip(chunks, vectors)
-    ]
     client.upsert(collection_name=COLLECTIONS[collection], points=points)
 
-
-def search_fields(
-    query_vector: list[float],
-    top_k: int = 10,
-    patient_id: str | None = None,
-    document_type: str | None = None,
-    source_type: str = "patient",
-    is_abnormal: bool | None = None,
-    field_name: str | None = None,
-    numeric_value_lt: float | None = None,
-    numeric_value_gt: float | None = None,
-) -> list:
-    conditions = []
-
-    if patient_id is not None:
-        conditions.append(
-            FieldCondition(key="patient_id", match=MatchValue(value=patient_id))
-        )
-    if document_type is not None:
-        conditions.append(
-            FieldCondition(key="document_type", match=MatchValue(value=document_type))
-        )
-    if source_type is not None:
-        conditions.append(
-            FieldCondition(key="source_type", match=MatchValue(value=source_type))
-        )
-    if is_abnormal is not None:
-        conditions.append(
-            FieldCondition(key="is_abnormal", match=MatchValue(value=is_abnormal))
-        )
-    if field_name is not None:
-        conditions.append(
-            FieldCondition(key="field_name", match=MatchValue(value=field_name))
-        )
-    if numeric_value_lt is not None or numeric_value_gt is not None:
-        conditions.append(
-            FieldCondition(
-                key="numeric_value",
-                range=Range(lt=numeric_value_lt, gt=numeric_value_gt),
-            )
-        )
-
-    query_filter = Filter(must=conditions) if conditions else None
-    client = get_client()
-    if hasattr(client, "search"):
-        return client.search(  # type: ignore
-            collection_name=COLLECTIONS["fields"],
-            query_vector=query_vector,
-            query_filter=query_filter,
-            limit=top_k,
-        )
-
-    return client.query_points(
-        collection_name=COLLECTIONS["fields"],
-        query=query_vector,
-        query_filter=query_filter,
-        limit=top_k,
-    ).points
-
-
-def get_patient_field_history(patient_id: str, field_name: str) -> list[dict]:
+def search(collection: str, query_vector: list[float], case_id: str, limit: int = 5):
     client = get_client()
     query_filter = Filter(
         must=[
-            FieldCondition(key="patient_id", match=MatchValue(value=patient_id)),
-            FieldCondition(key="field_name", match=MatchValue(value=field_name)),
+            FieldCondition(key="case_id", match=MatchValue(value=case_id))
         ]
     )
-
-    records = []
-    offset = None
-    while True:
-        points, offset = client.scroll(
-            collection_name=COLLECTIONS["fields"],
-            scroll_filter=query_filter,
-            limit=100,
-            offset=offset,
-            with_payload=True,
-            with_vectors=False,
+    if hasattr(client, "search"):
+        return client.search(
+            collection_name=COLLECTIONS[collection],
+            query_vector=query_vector,
+            query_filter=query_filter,
+            limit=limit,
         )
-        records.extend(point.payload for point in points if point.payload is not None)
-        if offset is None:
-            break
-
-    return sorted(records, key=lambda payload: payload.get("collection_date") or "")
+    return client.query_points(
+        collection_name=COLLECTIONS[collection],
+        query=query_vector,
+        query_filter=query_filter,
+        limit=limit,
+    ).points

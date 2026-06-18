@@ -128,8 +128,8 @@ class PipelineAOutput(BaseModel):
     Written to PostgreSQL via upsert. Pipeline B reads
     structured_text_for_embedding — it never imports Pipeline A code directly.
     """
-    job_id: str = Field(..., description="Unique job identifier (UUID)")
-    patient_id: str = Field(..., description="Patient identifier")
+    case_id: str = Field(..., description="Case identifier")
+    document_id: str = Field(..., description="Document identifier")
     document_type: DocumentType = Field(..., description="Detected document type")
     scored_fields: list[ScoredField] = Field(
         default_factory=list,
