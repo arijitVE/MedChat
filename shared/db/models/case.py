@@ -18,6 +18,10 @@ class Case(Base):
     status: Mapped[str] = mapped_column(String(32), nullable=False, default="CREATED")
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=datetime.utcnow)
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=datetime.utcnow, onupdate=datetime.utcnow)
+    user_id: Mapped[Optional[str]] = mapped_column(String(36), ForeignKey("users.user_id", ondelete="SET NULL"), nullable=True, index=True)
+
+    # Relationship to user
+    user = relationship("User", backref="cases")
 
     documents: Mapped[list["Document"]] = relationship("Document", back_populates="case", cascade="all, delete-orphan")
     jobs: Mapped[list["Job"]] = relationship("Job", back_populates="case", cascade="all, delete-orphan")

@@ -18,7 +18,12 @@ class Settings(BaseSettings):
     """
 
     # --- LLM ---
+    LLM_PROVIDER: str = "openai"  # "openai" or "groq"
     OPENAI_API_KEY: str = ""
+    GROQ_API_KEY: str = ""
+    
+    LLM_TEXT_MODEL: str = "gpt-4o"
+    LLM_VISION_MODEL: str = "gpt-4o"
 
     # --- Database ---
     DATABASE_URL: str = "mysql+pymysql://hdmis_user:hdmis_pass@localhost:3306/hdmis"
@@ -40,6 +45,7 @@ class Settings(BaseSettings):
 
     # --- Redis / Celery ---
     REDIS_URL: str = "redis://localhost:6379/0"
+    USE_CELERY: bool = False
 
     model_config = SettingsConfigDict(
         env_file=".env",

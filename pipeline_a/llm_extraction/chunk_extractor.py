@@ -2,7 +2,7 @@
 
 import time
 from typing import List
-from openai import OpenAI
+from shared.llm import get_llm_client, get_text_model
 
 from shared.config import get_settings
 from shared.logger import get_logger, log_stage
@@ -11,13 +11,6 @@ from shared.schemas.report import ExtractedField
 
 logger = get_logger(__name__)
 
-_client = None
-
-def _get_client():
-    global _client
-    if _client is None:
-        _client = OpenAI(api_key=get_settings().OPENAI_API_KEY)
-    return _client
 
 _CHUNK_PROMPT = """You are a medical document extraction system. Extract structured key-value data from the following text chunk.
 
@@ -48,14 +41,15 @@ _STRICT_PREFIX = (
 
 def extract_from_chunk(chunk_text: str, case_id: str, chunk_id: str) -> List[ExtractedField]:
     t_start = time.perf_counter()
-    client = _get_client()
+    client = get_llm_client()
+    text_model = get_text_model()
     
     prompt = _CHUNK_PROMPT.format(chunk_text=chunk_text)
     fields = []
     
     def _call(p):
         resp = client.chat.completions.create(
-            model="gpt-4o",
+            model=text_model,
             messages=[{"role": "user", "content": p}],
             temperature=0.0,
             max_tokens=2000,

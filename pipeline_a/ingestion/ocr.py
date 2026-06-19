@@ -10,20 +10,15 @@ from shared.logger import get_logger
 
 logger = get_logger(__name__)
 
-_client = None
-
-def _get_client():
-    global _client
-    if _client is None:
-        _client = OpenAI(api_key=get_settings().OPENAI_API_KEY)
-    return _client
+from shared.llm import get_llm_client, get_vision_model
 
 def has_extractable_text(page: fitz.Page) -> bool:
     text = str(page.get_text()).strip()
     return len(text) > 50
 
 def extract_page_with_vision(image_bytes: bytes) -> str:
-    client = _get_client()
+    client = get_llm_client()
+    vision_model = get_vision_model()
     base_prompt = """Extract ALL visible text.
 Preserve:
 - headings
@@ -39,7 +34,7 @@ Return Markdown."""
     
     def _call(prompt):
         resp = client.chat.completions.create(
-            model="gpt-4o",
+            model=vision_model,
             messages=[
                 {"role": "system", "content": prompt},
                 {"role": "user", "content": [

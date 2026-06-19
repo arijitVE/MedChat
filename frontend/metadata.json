@@ -1,0 +1,6 @@
+{
+  "name": "MedLegal Review",
+  "description": "A high-fidelity MedLegal Document Cataloging, Processing, and Case Intelligence Workspace client.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

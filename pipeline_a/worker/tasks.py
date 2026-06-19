@@ -15,13 +15,13 @@ logger = get_logger(__name__)
 def process_case_task(self, job_id: str, case_id: str):
     start_time = time.time()
     db = SessionLocal()
-    retry_count = self.request.retries
+    retry_count = getattr(self.request, "retries", 0)
     
     job = None
     try:
         job = db.get(Job, job_id)
         if job:
-            job.status = JobStatus.processing.value
+            job.status = "PROCESSING"
             db.commit()
             
         docs = db.query(Document).filter(Document.case_id == case_id).all()
@@ -56,15 +56,15 @@ def process_case_task(self, job_id: str, case_id: str):
         generate_insights_for_case(case_id, db)
             
         if job:
-            job.status = JobStatus.completed.value
+            job.status = "COMPLETED"
             job.completed_at = datetime.utcnow()
             db.commit()
             
-        return {"job_id": job_id, "status": JobStatus.completed.value}
+        return {"job_id": job_id, "status": "COMPLETED"}
         
     except Exception as exc:
         if job:
-            job.status = JobStatus.failed.value
+            job.status = "FAILED"
             job.error_message = str(exc)
             db.commit()
         logger.error(f"process_case_task failed: {exc}")

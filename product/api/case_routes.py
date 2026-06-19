@@ -2,12 +2,12 @@ import uuid
 import os
 from typing import List
 
-from fastapi import APIRouter, Depends, UploadFile, File, HTTPException
+from fastapi import APIRouter, Depends, UploadFile, File, HTTPException, BackgroundTasks
 from sqlalchemy.orm import Session
 
 from shared.db.session import get_db
 from shared.db.models.case import Case, Document, Job, Summary, Opinion, Timeline
-from shared.schemas.case import CaseCreate, CaseResponse, DocumentResponse, JobResponse
+from shared.schemas.case import CaseCreate, CaseResponse, DocumentResponse, JobResponse, CaseDetailResponse
 from pydantic import BaseModel
 
 class ChatRequest(BaseModel):
@@ -24,13 +24,27 @@ router = APIRouter(
     dependencies=[Depends(get_current_user)]
 )
 
+@router.get("", response_model=List[CaseResponse])
+def list_cases(db: Session = Depends(get_db), current_user = Depends(get_current_user)):
+    # Note: Pagination is omitted here for the POC, but should be added for production
+    cases = db.query(Case).filter(Case.user_id == str(current_user.user_id)).order_by(Case.created_at.desc()).all()
+    return cases
+
+@router.get("/{case_id}", response_model=CaseDetailResponse)
+def get_case(case_id: str, db: Session = Depends(get_db), current_user = Depends(get_current_user)):
+    case = db.get(Case, case_id)
+    if not case or str(case.user_id) != str(current_user.user_id):
+        raise HTTPException(status_code=404, detail="Case not found")
+    return case
+
 @router.post("", response_model=CaseResponse)
-def create_case(case_in: CaseCreate, db: Session = Depends(get_db)):
+def create_case(case_in: CaseCreate, db: Session = Depends(get_db), current_user = Depends(get_current_user)):
     db_case = Case(
         id=str(uuid.uuid4()),
         title=case_in.title,
         description=case_in.description,
-        status="CREATED"
+        status="CREATED",
+        user_id=str(current_user.user_id)
     )
     db.add(db_case)
     db.commit()
@@ -38,9 +52,9 @@ def create_case(case_in: CaseCreate, db: Session = Depends(get_db)):
     return db_case
 
 @router.post("/{case_id}/upload", response_model=DocumentResponse)
-def upload_file(case_id: str, file: UploadFile = File(...), db: Session = Depends(get_db)):
+def upload_file(case_id: str, file: UploadFile = File(...), db: Session = Depends(get_db), current_user = Depends(get_current_user)):
     case = db.get(Case, case_id)
-    if not case:
+    if not case or str(case.user_id) != str(current_user.user_id):
         raise HTTPException(status_code=404, detail="Case not found")
         
     file_bytes = file.file.read()
@@ -67,9 +81,9 @@ def upload_file(case_id: str, file: UploadFile = File(...), db: Session = Depend
     return doc
 
 @router.post("/{case_id}/process", response_model=JobResponse)
-def process_case(case_id: str, db: Session = Depends(get_db)):
+def process_case(case_id: str, background_tasks: BackgroundTasks, db: Session = Depends(get_db), current_user = Depends(get_current_user)):
     case = db.get(Case, case_id)
-    if not case:
+    if not case or str(case.user_id) != str(current_user.user_id):
         raise HTTPException(status_code=404, detail="Case not found")
         
     job = Job(
@@ -82,28 +96,53 @@ def process_case(case_id: str, db: Session = Depends(get_db)):
     db.refresh(job)
     
     from pipeline_a.worker.tasks import process_case_task
-    process_case_task.delay(job.id, case_id)
+    from shared.config import get_settings
+    
+    if get_settings().USE_CELERY:
+        # Use real Celery for production / full environments
+        process_case_task.delay(job.id, case_id)
+    else:
+        # Use FastAPI threads for local testing without Redis
+        def background_processing():
+            process_case_task.apply(args=[job.id, case_id])
+        background_tasks.add_task(background_processing)
     
     return job
 
+@router.get("/{case_id}/jobs/{job_id}", response_model=JobResponse)
+def get_job_status(case_id: str, job_id: str, db: Session = Depends(get_db), current_user = Depends(get_current_user)):
+    job = db.get(Job, job_id)
+    if not job or job.case_id != case_id:
+        raise HTTPException(status_code=404, detail="Job not found for this case")
+    case = db.get(Case, case_id)
+    if not case or str(case.user_id) != str(current_user.user_id):
+        raise HTTPException(status_code=404, detail="Case not found")
+    return job
+
 @router.get("/{case_id}/summary")
-def get_summary(case_id: str, db: Session = Depends(get_db)):
+def get_summary(case_id: str, db: Session = Depends(get_db), current_user = Depends(get_current_user)):
+    case = db.get(Case, case_id)
+    if not case or str(case.user_id) != str(current_user.user_id):
+        raise HTTPException(status_code=404, detail="Case not found")
     summary = db.query(Summary).filter_by(case_id=case_id).first()
     if not summary:
         raise HTTPException(status_code=404, detail="Summary not generated yet")
     return {"summary": summary.summary}
 
 @router.get("/{case_id}/opinion")
-def get_opinion(case_id: str, db: Session = Depends(get_db)):
+def get_opinion(case_id: str, db: Session = Depends(get_db), current_user = Depends(get_current_user)):
+    case = db.get(Case, case_id)
+    if not case or str(case.user_id) != str(current_user.user_id):
+        raise HTTPException(status_code=404, detail="Case not found")
     opinion = db.query(Opinion).filter_by(case_id=case_id).first()
     if not opinion:
         raise HTTPException(status_code=404, detail="Opinion not generated yet")
     return {"opinion": opinion.opinion}
 
 @router.post("/{case_id}/chat", response_model=ChatResponse)
-def chat_with_case(case_id: str, request: ChatRequest, db: Session = Depends(get_db)):
+def chat_with_case(case_id: str, request: ChatRequest, db: Session = Depends(get_db), current_user = Depends(get_current_user)):
     case = db.get(Case, case_id)
-    if not case:
+    if not case or str(case.user_id) != str(current_user.user_id):
         raise HTTPException(status_code=404, detail="Case not found")
         
     from pipeline_b.embedding.embedder import embed_single
@@ -148,12 +187,12 @@ def chat_with_case(case_id: str, request: ChatRequest, db: Session = Depends(get
     Answer the user's question accurately and concisely using ONLY the provided context. If the answer is not in the context, state that you do not know.
     """
     
-    from openai import OpenAI
-    from shared.config import get_settings
-    client = OpenAI(api_key=get_settings().OPENAI_API_KEY)
+    from shared.llm import get_llm_client, get_text_model
+    client = get_llm_client()
+    text_model = get_text_model()
     
     resp = client.chat.completions.create(
-        model="gpt-4o",
+        model=text_model,
         messages=[{"role": "user", "content": prompt}],
         temperature=0.0
     )

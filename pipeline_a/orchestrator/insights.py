@@ -2,7 +2,7 @@
 
 import json
 from sqlalchemy.orm import Session
-from openai import OpenAI
+from shared.llm import get_llm_client, get_text_model
 
 from shared.db.models.case import Timeline, Summary, Opinion
 from shared.db.models.extraction import ReportField
@@ -11,13 +11,6 @@ from shared.logger import get_logger
 
 logger = get_logger(__name__)
 
-_client = None
-
-def _get_client():
-    global _client
-    if _client is None:
-        _client = OpenAI(api_key=get_settings().OPENAI_API_KEY)
-    return _client
 
 def generate_insights_for_case(case_id: str, db: Session):
     logger.info(f"Generating insights for case {case_id}")
@@ -40,13 +33,14 @@ def generate_insights_for_case(case_id: str, db: Session):
         })
         
     master_json_str = json.dumps(master_json, indent=2)
-    client = _get_client()
+    client = get_llm_client()
+    text_model = get_text_model()
     
     # --- Task 9: Timeline Builder ---
     logger.info("Generating Timeline")
     timeline_prompt = "You are a medical timeline builder. Create a chronological timeline of events, tests, and diagnoses from this structured data. Return only Markdown text. Group by date.\n\n" + master_json_str
     resp = client.chat.completions.create(
-        model="gpt-4o",
+        model=text_model,
         messages=[{"role": "user", "content": timeline_prompt}],
         temperature=0.0
     )
@@ -60,7 +54,7 @@ def generate_insights_for_case(case_id: str, db: Session):
     logger.info("Generating Summary")
     summary_prompt = "You are an expert physician. Write a concise, human-readable medical summary of this case based on the structured data and timeline. Return only Markdown text.\n\nData:\n" + master_json_str + "\n\nTimeline:\n" + timeline_text
     resp = client.chat.completions.create(
-        model="gpt-4o",
+        model=text_model,
         messages=[{"role": "user", "content": summary_prompt}],
         temperature=0.0
     )
@@ -79,7 +73,7 @@ def generate_insights_for_case(case_id: str, db: Session):
     logger.info("Generating Opinion")
     opinion_prompt = "You are an expert physician. Based on the summary and timeline, provide a Clinical Opinion, Prognosis, and Recommendations. Return only Markdown text.\n\nSummary:\n" + summary_text + "\n\nTimeline:\n" + timeline_text
     resp = client.chat.completions.create(
-        model="gpt-4o",
+        model=text_model,
         messages=[{"role": "user", "content": opinion_prompt}],
         temperature=0.0
     )
@@ -94,7 +88,7 @@ def generate_insights_for_case(case_id: str, db: Session):
     categorize_prompt = "You are a data structurer. Given this medical JSON array, group the fields into exactly four JSON arrays: 'diagnoses', 'medications', 'lab_results', 'procedures'. Return ONLY valid JSON with those 4 keys, and string arrays as values. Do not hallucinate.\n\n" + master_json_str
     try:
         resp_cat = client.chat.completions.create(
-            model="gpt-4o",
+            model=text_model,
             messages=[{"role": "user", "content": categorize_prompt}],
             temperature=0.0,
             response_format={"type": "json_object"}

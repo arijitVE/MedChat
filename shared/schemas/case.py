@@ -1,5 +1,5 @@
 from datetime import datetime
-from typing import Optional
+from typing import Optional, List
 
 from pydantic import BaseModel, ConfigDict
 
@@ -17,6 +17,9 @@ class CaseResponse(BaseModel):
     status: str
     created_at: datetime
     updated_at: datetime
+
+class CaseDetailResponse(CaseResponse):
+    documents: List['DocumentResponse'] = []
 
 class DocumentResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
