@@ -16,7 +16,13 @@ class ChatRequest(BaseModel):
 class ChatResponse(BaseModel):
     reply: str
 
-router = APIRouter(prefix="/api/v1/cases", tags=["POC Cases"])
+from product.auth.middleware import get_current_user
+
+router = APIRouter(
+    prefix="/api/v1/cases", 
+    tags=["POC Cases"],
+    dependencies=[Depends(get_current_user)]
+)
 
 @router.post("", response_model=CaseResponse)
 def create_case(case_in: CaseCreate, db: Session = Depends(get_db)):
