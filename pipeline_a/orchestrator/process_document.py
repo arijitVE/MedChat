@@ -86,6 +86,12 @@ def run(
         upsert_fields(db, case_id, scored_fields)
         
         # --- Task 12 & 13: Embeddings & Qdrant RAG ---
+        import sys
+        from pathlib import Path
+        root_dir = str(Path(__file__).resolve().parent.parent.parent)
+        if root_dir not in sys.path:
+            sys.path.insert(0, root_dir)
+            
         from pipeline_b.vector_db.qdrant_client import ensure_collections_exist, upsert_vectors
         from pipeline_b.embedding.embedder import embed
         from qdrant_client.models import PointStruct
