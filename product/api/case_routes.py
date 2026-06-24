@@ -57,23 +57,43 @@ def upload_file(case_id: str, file: UploadFile = File(...), db: Session = Depend
     if not case or str(case.user_id) != str(current_user.user_id):
         raise HTTPException(status_code=404, detail="Case not found")
         
+    ALLOWED_TYPES = {"application/pdf", "image/jpeg", "image/png", "image/tiff"}
+    if file.content_type not in ALLOWED_TYPES:
+        raise HTTPException(status_code=400, detail="Unsupported file type")
+        
+    # Idempotency check
+    existing_doc = db.query(Document).filter_by(case_id=case_id, file_name=file.filename, status="PROCESSED").first()
+    if existing_doc:
+        return existing_doc
+        
     file_bytes = file.file.read()
     
-    storage_dir = os.path.join(os.getcwd(), "storage", "cases", case_id)
-    os.makedirs(storage_dir, exist_ok=True)
+    from storage.backend import get_storage
+    storage = get_storage()
+    
     document_id = str(uuid.uuid4())
-    storage_path = os.path.join(storage_dir, f"{document_id}_{file.filename}")
+    storage_key = storage.upload_file(file_bytes, case_id, document_id, file.filename)
     
-    with open(storage_path, "wb") as f:
-        f.write(file_bytes)
-    
+    filename_lower = file.filename.lower()
+    if "lab" in filename_lower or "blood" in filename_lower or "report" in filename_lower:
+        doc_type = "lab_report"
+    elif "rx" in filename_lower or "prescription" in filename_lower or "med" in filename_lower:
+        doc_type = "prescription"
+    elif "discharge" in filename_lower or "summary" in filename_lower:
+        doc_type = "discharge_summary"
+    elif "xray" in filename_lower or "mri" in filename_lower or "ct" in filename_lower or "radiology" in filename_lower:
+        doc_type = "radiology"
+    else:
+        doc_type = "unknown"
+
     doc = Document(
         id=document_id,
         case_id=case_id,
         file_name=file.filename,
         mime_type=file.content_type or "application/octet-stream",
+        doc_type=doc_type,
         status="UPLOADED",
-        storage_path=storage_path
+        storage_path=storage_key
     )
     db.add(doc)
     db.commit()
@@ -118,6 +138,26 @@ def get_job_status(case_id: str, job_id: str, db: Session = Depends(get_db), cur
     if not case or str(case.user_id) != str(current_user.user_id):
         raise HTTPException(status_code=404, detail="Case not found")
     return job
+
+@router.get("/{case_id}/status")
+def get_case_status(case_id: str, db: Session = Depends(get_db), current_user = Depends(get_current_user)):
+    case = db.get(Case, case_id)
+    if not case or str(case.user_id) != str(current_user.user_id):
+        raise HTTPException(status_code=404, detail="Case not found")
+        
+    # Get the latest job
+    job = db.query(Job).filter_by(case_id=case_id).order_by(Job.id.desc()).first()
+    job_status = job.status if job else "NONE"
+    
+    documents = db.query(Document).filter_by(case_id=case_id).all()
+    
+    return {
+        "job_status": job_status,
+        "documents": [
+            {"document_id": doc.id, "filename": doc.file_name, "status": doc.status}
+            for doc in documents
+        ]
+    }
 
 @router.get("/{case_id}/summary")
 def get_summary(case_id: str, db: Session = Depends(get_db), current_user = Depends(get_current_user)):

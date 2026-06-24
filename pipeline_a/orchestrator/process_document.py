@@ -58,6 +58,32 @@ def run(
             
         db.commit()
         
+        # Ensure Document Type via Classifier if unknown
+        if doc.document_type == DocumentType.unknown and pages_for_chunking:
+            from shared.llm import get_llm_client, get_text_model
+            client = get_llm_client()
+            first_page_text = pages_for_chunking[0]["text"]
+            
+            prompt = f"""Classify this medical document into exactly ONE of the following categories: lab_report, prescription, discharge_summary, radiology. 
+            If it does not fit any, return unknown. Return ONLY the category name.
+            
+            TEXT:
+            {first_page_text[:3000]}"""
+            
+            try:
+                resp = client.chat.completions.create(
+                    model=get_text_model(),
+                    messages=[{"role": "user", "content": prompt}],
+                    temperature=0.0
+                )
+                pred = (resp.choices[0].message.content or "").strip().lower()
+                if pred in ["lab_report", "prescription", "discharge_summary", "radiology"]:
+                    doc.document_type = DocumentType(pred)
+                    doc_type_enum = doc.document_type
+                    db.commit()
+            except Exception as e:
+                logger.error(f"LLM Classification failed: {e}")
+        
         # --- Task 4: Chunking ---
         from pipeline_a.orchestrator.chunking import chunk_text
         chunks = chunk_text(pages_for_chunking)
@@ -83,7 +109,7 @@ def run(
         
         # Persist extracted fields
         from shared.db.models.extraction import upsert_fields
-        upsert_fields(db, case_id, scored_fields)
+        upsert_fields(db, case_id, document_id, scored_fields)
         
         # --- Task 12 & 13: Embeddings & Qdrant RAG ---
         import sys
@@ -106,7 +132,7 @@ def run(
             for i, c in enumerate(chunks):
                 chunk_points.append(
                     PointStruct(
-                        id=c["chunk_id"], 
+                        id=uuid.UUID(c["chunk_id"]), 
                         vector=chunk_vectors[i], 
                         payload={
                             "case_id": case_id, 

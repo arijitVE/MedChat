@@ -40,6 +40,13 @@ class ReportField(Base):
         index=True,
         comment="FK → cases (cascading delete)",
     )
+    document_id: Mapped[str] = mapped_column(
+        String(64),
+        ForeignKey("documents.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+        comment="FK → documents (cascading delete)",
+    )
 
     # ------ Field Data ------
     name: Mapped[str] = mapped_column(
@@ -80,7 +87,7 @@ class ReportField(Base):
 
     # ------ Constraints ------
     __table_args__ = (
-        UniqueConstraint("case_id", "name", name="uq_report_fields_case_id_name"),
+        UniqueConstraint("case_id", "document_id", "name", "collection_date", name="uq_report_fields_case_doc_name_date"),
     )
 
     def __repr__(self) -> str:
@@ -110,6 +117,7 @@ class OCRPage(Base):
 def upsert_fields(
     db: Session,
     case_id: str,
+    document_id: str,
     scored_fields: list[Any],
 ) -> None:
     """Bulk upsert extracted fields into report_fields.
@@ -133,19 +141,20 @@ def upsert_fields(
     for field in scored_fields:
         values = {
             "case_id": case_id,
+            "document_id": document_id,
             "name": field.name,
             "value": field.value,
             "numeric_value": _parse_numeric_value(field.value),
             "unit": getattr(field, "unit", None),
             "reference_range": getattr(field, "reference_range", None),
-            "collection_date": getattr(field, "collection_date", None),
+            "collection_date": getattr(field, "collection_date", None) or "",
             "ref_low": getattr(field, "ref_low", None),
             "ref_high": getattr(field, "ref_high", None),
         }
 
         update_values = {
             k: v for k, v in values.items()
-            if k not in ("case_id", "name")  # don't update the conflict keys
+            if k not in ("case_id", "document_id", "name", "collection_date")  # don't update the conflict keys
         }
 
         stmt = build_upsert(
@@ -153,8 +162,8 @@ def upsert_fields(
             ReportField,
             values,
             update_values,
-            index_elements=["case_id", "name"],
-            constraint="uq_report_fields_case_id_name",
+            index_elements=["case_id", "document_id", "name", "collection_date"],
+            constraint="uq_report_fields_case_doc_name_date",
         )
         db.execute(stmt)
 

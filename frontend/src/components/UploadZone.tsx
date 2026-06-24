@@ -45,8 +45,12 @@ export default function UploadZone({
   };
 
   const handleRealUpload = async (file: File) => {
-    if (file.type !== 'application/pdf' && !file.name.toLowerCase().endsWith('.pdf')) {
-      alert('Only PDF files are supported at this time.');
+    const validTypes = ['application/pdf', 'image/jpeg', 'image/png', 'image/jpg'];
+    const isPdfExt = file.name.toLowerCase().endsWith('.pdf');
+    const isImgExt = file.name.toLowerCase().match(/\.(jpg|jpeg|png)$/);
+    
+    if (!validTypes.includes(file.type) && !isPdfExt && !isImgExt) {
+      alert('Only PDF and Image files (JPG, PNG) are supported at this time.');
       return;
     }
     try {
@@ -163,7 +167,7 @@ export default function UploadZone({
           type="file"
           ref={fileInputRef}
           className="hidden"
-          accept=".pdf,application/pdf"
+          accept=".pdf,application/pdf,image/jpeg,image/png,.jpg,.jpeg,.png"
           onChange={handleFileChange}
         />
         <div className="absolute inset-0 opacity-0 group-hover:opacity-[0.02] pointer-events-none bg-black"></div>
@@ -222,7 +226,7 @@ export default function UploadZone({
                   {/* File ID / Indicator */}
                   <div className="col-span-12 sm:col-span-6 flex items-center gap-4">
                     <span className="material-symbols-outlined text-gray-400">
-                      {isPdf ? 'picture_as_pdf' : 'description'}
+                      {isPdf ? 'picture_as_pdf' : 'image'}
                     </span>
                     <div className="overflow-hidden">
                       <p className="font-semibold text-black text-xs truncate">

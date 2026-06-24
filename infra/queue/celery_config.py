@@ -14,7 +14,7 @@ settings = get_settings()
 celery_app = Celery(
     "documed_worker",
     broker=settings.REDIS_URL,
-    backend=settings.REDIS_URL,
+    backend=settings.REDIS_RESULT_BACKEND,
     include=["pipeline_a.worker.tasks"]
 )
 

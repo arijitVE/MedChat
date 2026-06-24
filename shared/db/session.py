@@ -45,7 +45,7 @@ def get_db() -> Generator[Session, None, None]:
         def upload(db: Session = Depends(get_db)):
             ...
 
-    The session is committed on success and rolled back + closed on error.
+    The session is NOT committed automatically. You must call db.commit() explicitly.
     """
     db = SessionLocal()
     try:

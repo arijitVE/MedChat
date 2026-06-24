@@ -126,3 +126,4 @@ wcwidth==0.7.0
 websockets==15.0.1
 xxhash==3.7.0
 zstandard==0.25.0
+boto3>=1.34.0

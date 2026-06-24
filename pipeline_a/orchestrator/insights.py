@@ -21,15 +21,28 @@ def generate_insights_for_case(case_id: str, db: Session):
         logger.warning(f"No fields found for case {case_id}, skipping insights.")
         return
         
-    # Build Master JSON
+    from shared.db.models.case import Document
+    from shared.utils.abnormal import check_abnormal
+    
+    doc_map = {
+        doc.id: doc 
+        for doc in db.query(Document)
+            .filter(Document.case_id == case_id).all()
+    }
+
     master_json = []
     for f in fields:
+        doc = doc_map.get(f.document_id)
+        
         master_json.append({
             "name": f.name,
             "value": f.value,
             "unit": f.unit,
             "reference_range": f.reference_range,
-            "collection_date": f.collection_date
+            "collection_date": f.collection_date,
+            "document_type": doc.doc_type if doc else "unknown",
+            "source_file": doc.file_name if doc else "unknown",
+            "is_abnormal": check_abnormal(f.numeric_value, f.reference_range, f.unit),
         })
         
     master_json_str = json.dumps(master_json, indent=2)
@@ -38,7 +51,22 @@ def generate_insights_for_case(case_id: str, db: Session):
     
     # --- Task 9: Timeline Builder ---
     logger.info("Generating Timeline")
-    timeline_prompt = "You are a medical timeline builder. Create a chronological timeline of events, tests, and diagnoses from this structured data. Return only Markdown text. Group by date.\n\n" + master_json_str
+    timeline_prompt = f"""You are a medical timeline builder.
+
+PATIENT DATA:
+{master_json_str}
+
+Create a strict chronological timeline of this patient's medical history.
+
+FORMAT RULES:
+- Use ## YYYY-MM-DD as the header for each date
+- Under each date, list all events: tests performed, diagnoses made, medications prescribed
+- For lab values, include the value, unit, and flag as ⚠️ ABNORMAL if is_abnormal is True
+- Group all events with the same date under one header
+- Sort chronologically, oldest first
+- If collection_date is null for a field, group it under ## Date Unknown at the end
+
+Do not invent dates. Do not summarize — list every data point."""
     resp = client.chat.completions.create(
         model=text_model,
         messages=[{"role": "user", "content": timeline_prompt}],
@@ -52,7 +80,28 @@ def generate_insights_for_case(case_id: str, db: Session):
     
     # --- Task 10: Summary Generator ---
     logger.info("Generating Summary")
-    summary_prompt = "You are an expert physician. Write a concise, human-readable medical summary of this case based on the structured data and timeline. Return only Markdown text.\n\nData:\n" + master_json_str + "\n\nTimeline:\n" + timeline_text
+    summary_prompt = f"""You are an expert physician writing a structured medical case summary.
+
+PATIENT DATA:
+{master_json_str}
+
+Write a clinical summary with these exact sections:
+## Chief Complaint & Presentation
+## Key Diagnoses
+## Laboratory Findings
+(For each lab value: state the value, unit, reference range, and whether it is ABNORMAL or NORMAL. 
+For fields where is_abnormal is True, prefix with ⚠️. 
+For fields where is_abnormal is None, use clinical judgment.)
+## Medications Prescribed
+## Clinical Course & Timeline
+## Current Status
+
+RULES:
+- Never invent values not present in the data
+- Note trends when the same test appears multiple times with different collection_date values
+- Use clinical language appropriate for a physician
+- If data is insufficient for a section, write "Insufficient data"
+- Fields with document_type of lab_report are objective findings; prescription fields are treatments"""
     resp = client.chat.completions.create(
         model=text_model,
         messages=[{"role": "user", "content": summary_prompt}],
@@ -71,7 +120,38 @@ def generate_insights_for_case(case_id: str, db: Session):
         
     # --- Task 11: Opinion Generator ---
     logger.info("Generating Opinion")
-    opinion_prompt = "You are an expert physician. Based on the summary and timeline, provide a Clinical Opinion, Prognosis, and Recommendations. Return only Markdown text.\n\nSummary:\n" + summary_text + "\n\nTimeline:\n" + timeline_text
+    opinion_prompt = f"""You are a senior consultant physician providing a second opinion.
+
+CASE SUMMARY:
+{summary_text}
+
+CLINICAL TIMELINE:
+{timeline_text}
+
+RAW STRUCTURED DATA:
+{master_json_str}
+
+Provide a structured clinical opinion with these exact sections:
+## Diagnostic Assessment
+Confirm, question, or refine the diagnoses. Note differentials worth considering.
+
+## Critical Findings Requiring Attention
+List all fields where is_abnormal is True. Flag any potentially dangerous drug combinations or doses.
+
+## Treatment Evaluation
+Assess appropriateness of prescribed medications and their doses.
+
+## Recommendations
+Specific, actionable next steps — investigations, referrals, follow-ups.
+
+## Prognosis
+Based on available data only.
+
+RULES:
+- Clearly distinguish confirmed findings from clinical judgment
+- If is_abnormal is True for any field, it must appear in Critical Findings
+- If data is insufficient to form an opinion on a section, say so explicitly
+- Do not invent findings not present in the data"""
     resp = client.chat.completions.create(
         model=text_model,
         messages=[{"role": "user", "content": opinion_prompt}],
@@ -106,28 +186,41 @@ def generate_insights_for_case(case_id: str, db: Session):
     
     ensure_collections_exist()
     
+    try:
+        from langchain_text_splitters import RecursiveCharacterTextSplitter
+    except ImportError:
+        from langchain.text_splitter import RecursiveCharacterTextSplitter
+        
+    splitter = RecursiveCharacterTextSplitter(chunk_size=1000, chunk_overlap=150)
+    
+    def chunk_text(text: str):
+        return splitter.split_text(text)
+    
     payloads_to_embed = []
     
     if summary_text.strip():
-        payloads_to_embed.append({
-            "category": "summary",
-            "text": f"CASE SUMMARY:\n{summary_text}"
-        })
-        
+        for i, chunk in enumerate(chunk_text(summary_text)):
+            payloads_to_embed.append({
+                "category": f"summary_part_{i}",
+                "text": f"CASE SUMMARY (Part {i+1}):\n{chunk}"
+            })
+            
     if timeline_text.strip():
-        payloads_to_embed.append({
-            "category": "timeline",
-            "text": f"CASE TIMELINE:\n{timeline_text}"
-        })
-        
+        for i, chunk in enumerate(chunk_text(timeline_text)):
+            payloads_to_embed.append({
+                "category": f"timeline_part_{i}",
+                "text": f"CASE TIMELINE (Part {i+1}):\n{chunk}"
+            })
+            
     for category in ["diagnoses", "medications", "lab_results", "procedures"]:
         items = cat_json.get(category, [])
         if items:
             items_str = "\n".join([f"- {item}" for item in items])
-            payloads_to_embed.append({
-                "category": category,
-                "text": f"{category.upper()}:\n{items_str}"
-            })
+            for i, chunk in enumerate(chunk_text(items_str)):
+                payloads_to_embed.append({
+                    "category": f"{category}_part_{i}",
+                    "text": f"{category.upper()} (Part {i+1}):\n{chunk}"
+                })
             
     if payloads_to_embed:
         texts_to_embed = [p["text"] for p in payloads_to_embed]
@@ -136,9 +229,14 @@ def generate_insights_for_case(case_id: str, db: Session):
         points = []
         for i, p_dict in enumerate(payloads_to_embed):
             p_dict["case_id"] = case_id
+            
+            # Deterministic ID to prevent duplicate vectors on rerun
+            hash_str = f"{case_id}_{p_dict['category']}_{i}"
+            deterministic_id = str(uuid.uuid5(uuid.NAMESPACE_OID, hash_str))
+            
             points.append(
                 PointStruct(
-                    id=str(uuid.uuid4()),
+                    id=deterministic_id,
                     vector=vectors[i],
                     payload=p_dict
                 )

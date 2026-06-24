@@ -45,7 +45,15 @@ class Settings(BaseSettings):
 
     # --- Redis / Celery ---
     REDIS_URL: str = "redis://localhost:6379/0"
+    REDIS_RESULT_BACKEND: str = "redis://localhost:6379/1"
     USE_CELERY: bool = False
+
+    # --- MinIO Storage ---
+    STORAGE_BACKEND: str = "local"
+    MINIO_ENDPOINT: str = ""
+    MINIO_ACCESS_KEY: str = ""
+    MINIO_SECRET_KEY: str = ""
+    MINIO_BUCKET: str = "documents-storage"
 
     model_config = SettingsConfigDict(
         env_file=".env",
