@@ -50,6 +50,9 @@ class ExtractedField(BaseModel):
         default=None,
         description="Date the sample was collected or test was performed",
     )
+    numeric_value: Optional[float] = None
+    ref_low: Optional[float] = None
+    ref_high: Optional[float] = None
 
     model_config = {"from_attributes": True}
 
@@ -118,6 +121,10 @@ class ScoredField(BaseModel):
     unit: Optional[str] = Field(default=None, description="Canonical unit")
     reference_range: Optional[str] = Field(default=None, description="Reference range if available")
     collection_date: Optional[str] = Field(default=None, description="Collection date if available")
+    numeric_value: Optional[float] = None
+    ref_low: Optional[float] = None
+    ref_high: Optional[float] = None
+    is_abnormal: Optional[bool] = None
 
     model_config = {"from_attributes": True}
 

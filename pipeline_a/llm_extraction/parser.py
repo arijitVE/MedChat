@@ -162,14 +162,25 @@ def parse_llm_response(raw: str) -> list[ExtractedField]:
         )
         return []
 
-    # Step 4: validate each item against ExtractedField
+    return _validate_fields(items)
+
+
+def _to_float(val: Any) -> float | None:
+    if val is None or val == "":
+        return None
+    try:
+        return float(val)
+    except (ValueError, TypeError):
+        return None
+
+
+def _validate_fields(items: list[dict[str, Any]]) -> list[ExtractedField]:
     fields: list[ExtractedField] = []
     for i, item in enumerate(items):
         if not isinstance(item, dict):
             logger.warning("llm_field_not_dict", index=i, type=type(item).__name__)
             continue
 
-        # Ensure required fields exist with at least empty strings
         if "name" not in item or "value" not in item:
             logger.warning(
                 "llm_field_missing_required",
@@ -193,8 +204,10 @@ def parse_llm_response(raw: str) -> list[ExtractedField]:
                     if item.get("collection_date")
                     else None
                 ),
+                numeric_value=_to_float(item.get("numeric_value")),
+                ref_low=_to_float(item.get("ref_low")),
+                ref_high=_to_float(item.get("ref_high")),
             )
-            # Skip fields with empty name or value
             if field.name and field.value:
                 fields.append(field)
             else:
@@ -214,3 +227,35 @@ def parse_llm_response(raw: str) -> list[ExtractedField]:
             continue
 
     return fields
+
+
+def parse_combined_llm_response(raw: str) -> tuple[list[ExtractedField], dict[str, Any]]:
+    """Parse unified extraction response containing clinical_fields and document_metadata."""
+    if not raw or not raw.strip():
+        return [], {}
+
+    cleaned = strip_markdown_fences(raw)
+    parsed = _try_parse_json(cleaned)
+    if not isinstance(parsed, dict):
+        logger.warning("combined_llm_json_not_dict", preview=cleaned[:200])
+        return [], {}
+
+    clinical_raw = parsed.get("clinical_fields")
+    if isinstance(clinical_raw, list):
+        fields = _validate_fields(clinical_raw)
+    else:
+        logger.warning("combined_llm_missing_clinical_fields")
+        fields = []
+
+    meta_raw = parsed.get("document_metadata")
+    metadata: dict[str, Any] = {}
+    if isinstance(meta_raw, dict):
+        for k, v in meta_raw.items():
+            if v is not None and str(v).strip() not in ("", "null", "None"):
+                metadata[k] = str(v).strip()
+            else:
+                metadata[k] = None
+    else:
+        logger.warning("combined_llm_missing_document_metadata")
+
+    return fields, metadata

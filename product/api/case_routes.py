@@ -6,9 +6,10 @@ from fastapi import APIRouter, Depends, UploadFile, File, HTTPException, Backgro
 from sqlalchemy.orm import Session
 
 from shared.db.session import get_db
-from shared.db.models.case import Case, Document, Job, Summary, Opinion, Timeline
+from shared.db.models.case import Case, Document, Job
 from shared.schemas.case import CaseCreate, CaseResponse, DocumentResponse, JobResponse, CaseDetailResponse
 from pydantic import BaseModel
+from shared.db.mongo import get_collection
 
 class ChatRequest(BaseModel):
     message: str
@@ -26,7 +27,6 @@ router = APIRouter(
 
 @router.get("", response_model=List[CaseResponse])
 def list_cases(db: Session = Depends(get_db), current_user = Depends(get_current_user)):
-    # Note: Pagination is omitted here for the POC, but should be added for production
     cases = db.query(Case).filter(Case.user_id == str(current_user.user_id)).order_by(Case.created_at.desc()).all()
     return cases
 
@@ -61,7 +61,6 @@ def upload_file(case_id: str, file: UploadFile = File(...), db: Session = Depend
     if file.content_type not in ALLOWED_TYPES:
         raise HTTPException(status_code=400, detail="Unsupported file type")
         
-    # Idempotency check
     existing_doc = db.query(Document).filter_by(case_id=case_id, file_name=file.filename, status="PROCESSED").first()
     if existing_doc:
         return existing_doc
@@ -119,10 +118,8 @@ def process_case(case_id: str, background_tasks: BackgroundTasks, db: Session = 
     from shared.config import get_settings
     
     if get_settings().USE_CELERY:
-        # Use real Celery for production / full environments
         process_case_task.delay(job.id, case_id)
     else:
-        # Use FastAPI threads for local testing without Redis
         def background_processing():
             process_case_task.apply(args=[job.id, case_id])
         background_tasks.add_task(background_processing)
@@ -145,7 +142,6 @@ def get_case_status(case_id: str, db: Session = Depends(get_db), current_user = 
     if not case or str(case.user_id) != str(current_user.user_id):
         raise HTTPException(status_code=404, detail="Case not found")
         
-    # Get the latest job
     job = db.query(Job).filter_by(case_id=case_id).order_by(Job.id.desc()).first()
     job_status = job.status if job else "NONE"
     
@@ -164,20 +160,40 @@ def get_summary(case_id: str, db: Session = Depends(get_db), current_user = Depe
     case = db.get(Case, case_id)
     if not case or str(case.user_id) != str(current_user.user_id):
         raise HTTPException(status_code=404, detail="Case not found")
-    summary = db.query(Summary).filter_by(case_id=case_id).first()
-    if not summary:
+    doc = get_collection("case_insights").find_one({"case_id": case_id})
+    if not doc or not doc.get("summary"):
         raise HTTPException(status_code=404, detail="Summary not generated yet")
-    return {"summary": summary.summary}
+    return {"summary": doc["summary"]}
+
+@router.get("/{case_id}/timeline")
+def get_timeline(case_id: str, db: Session = Depends(get_db), current_user = Depends(get_current_user)):
+    case = db.get(Case, case_id)
+    if not case or str(case.user_id) != str(current_user.user_id):
+        raise HTTPException(status_code=404, detail="Case not found")
+    doc = get_collection("case_insights").find_one({"case_id": case_id})
+    if not doc or not doc.get("timeline"):
+        raise HTTPException(status_code=404, detail="Timeline not generated yet")
+    return {"timeline": doc["timeline"]}
 
 @router.get("/{case_id}/opinion")
 def get_opinion(case_id: str, db: Session = Depends(get_db), current_user = Depends(get_current_user)):
     case = db.get(Case, case_id)
     if not case or str(case.user_id) != str(current_user.user_id):
         raise HTTPException(status_code=404, detail="Case not found")
-    opinion = db.query(Opinion).filter_by(case_id=case_id).first()
-    if not opinion:
+    doc = get_collection("case_insights").find_one({"case_id": case_id})
+    if not doc or not doc.get("opinion"):
         raise HTTPException(status_code=404, detail="Opinion not generated yet")
-    return {"opinion": opinion.opinion}
+    return {"opinion": doc["opinion"]}
+
+@router.get("/{case_id}/metadata")
+def get_metadata(case_id: str, db: Session = Depends(get_db), current_user = Depends(get_current_user)):
+    case = db.get(Case, case_id)
+    if not case or str(case.user_id) != str(current_user.user_id):
+        raise HTTPException(status_code=404, detail="Case not found")
+    doc = get_collection("case_metadata").find_one({"case_id": case_id}, {"_id": 0})
+    if not doc:
+        raise HTTPException(status_code=404, detail="Metadata not found")
+    return doc
 
 @router.post("/{case_id}/chat", response_model=ChatResponse)
 def chat_with_case(case_id: str, request: ChatRequest, db: Session = Depends(get_db), current_user = Depends(get_current_user)):
@@ -190,22 +206,16 @@ def chat_with_case(case_id: str, request: ChatRequest, db: Session = Depends(get
     
     query_vector = embed_single(request.message)
     
-    # Retrieve top-k chunks
     chunk_points = search("raw_chunks", query_vector, case_id, limit=5)
     chunk_texts = [p.payload["text"] for p in chunk_points if p.payload]
     
-    # Retrieve top-k structured fields
     struct_points = search("structured_medical_data", query_vector, case_id, limit=10)
     struct_texts = [p.payload["text"] for p in struct_points if p.payload]
     
-    # Fetch summary & timeline
-    summary_obj = db.query(Summary).filter_by(case_id=case_id).first()
-    timeline_obj = db.query(Timeline).filter_by(case_id=case_id).first()
+    insights_doc = get_collection("case_insights").find_one({"case_id": case_id})
+    summary_text = insights_doc.get("summary", "No summary available.") if insights_doc else "No summary available."
+    timeline_text = insights_doc.get("timeline", "No timeline available.") if insights_doc else "No timeline available."
     
-    summary_text = summary_obj.summary if summary_obj else "No summary available."
-    timeline_text = timeline_obj.timeline_json if timeline_obj else "No timeline available."
-    
-    # Combine prompt
     prompt = f"""You are a medical AI assistant answering questions about a patient's case.
     
     USER QUESTION: {request.message}
@@ -239,4 +249,3 @@ def chat_with_case(case_id: str, request: ChatRequest, db: Session = Depends(get
     
     reply = resp.choices[0].message.content or "I was unable to generate a response."
     return ChatResponse(reply=reply)
-

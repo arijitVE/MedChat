@@ -1,11 +1,13 @@
 # pipeline_a/orchestrator/process_document.py
 import time
+from datetime import datetime
 from sqlalchemy.orm import Session
 
 from shared.schemas.report import JobStatus, DocumentType, PipelineAOutput
 from shared.schemas.document import IngestedDocument
 from shared.config import get_settings
 from shared.logger import get_logger
+from shared.db.mongo import get_collection
 
 
 logger = get_logger(__name__)
@@ -19,7 +21,7 @@ def run(
     db: Session,
     file_name: str = "",
 ) -> PipelineAOutput:
-    """Run simplified Pipeline A stages."""
+    """Run simplified Pipeline A stages with unified string join and MongoDB persistence."""
     t_start = time.perf_counter()
     settings = get_settings()
 
@@ -39,7 +41,6 @@ def run(
             file_name=file_name,
         )
         
-        # --- Task 2/3/4 extraction logic will go here ---
         from pipeline_a.ingestion.ocr import extract_text_from_document
         from shared.db.models.extraction import OCRPage
         
@@ -84,20 +85,30 @@ def run(
             except Exception as e:
                 logger.error(f"LLM Classification failed: {e}")
         
-        # --- Task 4: Chunking ---
-        from pipeline_a.orchestrator.chunking import chunk_text
-        chunks = chunk_text(pages_for_chunking)
+        # Stage 2: Build unified document text
+        pages_for_chunking.sort(key=lambda x: x["page_no"])
+        unified_document_text = ""
+        for p in pages_for_chunking:
+            unified_document_text += f"\n--- PAGE {p['page_no']} ---\n{p['text']}\n\n"
         
-        # --- Task 5: Medical Extraction ---
+        # Stage 3: Chunking
+        from pipeline_a.orchestrator.chunking import chunk_text
+        chunks = chunk_text(unified_document_text)
+        
+        # Stage 4: Unified LLM Extraction
         from pipeline_a.llm_extraction.chunk_extractor import extract_from_chunk
         all_extracted_fields = []
+        all_metadata_dicts = []
         for chunk in chunks:
-            fields = extract_from_chunk(chunk["chunk_text"], case_id, chunk["chunk_id"])
+            fields, metadata = extract_from_chunk(chunk["chunk_text"], case_id, chunk["chunk_id"])
             all_extracted_fields.extend(fields)
+            if metadata:
+                all_metadata_dicts.append(metadata)
         
-        # --- Task 6 & 7: Merge & Normalize ---
-        from pipeline_a.orchestrator.merger import merge_and_normalize
+        # Stage 5: Merge & Normalize
+        from pipeline_a.orchestrator.merger import merge_and_normalize, merge_metadata_dicts
         scored_fields = merge_and_normalize(all_extracted_fields)
+        merged_metadata = merge_metadata_dicts(all_metadata_dicts)
         
         # Format text for embedding
         lines = [f"Document type: {doc.document_type.value}"]
@@ -107,11 +118,43 @@ def run(
             lines.append(f"{f.name}: {f.value}{unit_str}{ref_str}")
         structured_text_for_embedding = "\n".join(lines)
         
-        # Persist extracted fields
-        from shared.db.models.extraction import upsert_fields
-        upsert_fields(db, case_id, document_id, scored_fields)
+        # Persist to MongoDB
+        now = datetime.utcnow()
+        clinical_doc = {
+            "case_id": case_id,
+            "fields": [
+                {
+                    "name": f.name,
+                    "value": f.value,
+                    "numeric_value": getattr(f, "numeric_value", None),
+                    "unit": getattr(f, "unit", None),
+                    "ref_low": getattr(f, "ref_low", None),
+                    "ref_high": getattr(f, "ref_high", None),
+                    "is_abnormal": getattr(f, "is_abnormal", None),
+                    "collection_date": getattr(f, "collection_date", None)
+                }
+                for f in scored_fields
+            ],
+            "updated_at": now
+        }
+        get_collection("case_clinical_fields").update_one(
+            {"case_id": case_id},
+            {"$set": clinical_doc},
+            upsert=True
+        )
         
-        # --- Task 12 & 13: Embeddings & Qdrant RAG ---
+        meta_update = {
+            k: v for k, v in merged_metadata.items() if v is not None
+        }
+        meta_update["case_id"] = case_id
+        meta_update["updated_at"] = now
+        get_collection("case_metadata").update_one(
+            {"case_id": case_id},
+            {"$set": meta_update},
+            upsert=True
+        )
+        
+        # --- Stage 7: Embeddings & Qdrant RAG ---
         import sys
         from pathlib import Path
         root_dir = str(Path(__file__).resolve().parent.parent.parent)

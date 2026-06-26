@@ -27,6 +27,11 @@ class Settings(BaseSettings):
 
     # --- Database ---
     DATABASE_URL: str = "mysql+pymysql://hdmis_user:hdmis_pass@localhost:3306/hdmis"
+    MONGODB_URL: str = "mongodb://localhost:27017"
+    MONGODB_DB_NAME: str = "documed"
+
+    # --- Document Parsing ---
+    USE_DOCLING: bool = True
 
     # --- Product Layer Auth ---
     SECRET_KEY: str = "change-me-minimum-32-characters-secret"

@@ -6,6 +6,7 @@ from __future__ import annotations
 
 from typing import Any, Optional
 
+import re
 from datetime import datetime
 from sqlalchemy import DateTime, Float, ForeignKey, Integer, String, Text, UniqueConstraint
 from sqlalchemy.orm import Mapped, Session, mapped_column
@@ -15,7 +16,9 @@ from shared.db.upsert import build_upsert
 
 
 class ReportField(Base):
-    """ORM model for the report_fields table.
+    """DEPRECATED — replaced by MongoDB case_clinical_fields collection.
+
+    ORM model for the report_fields table.
 
     Stores individual extracted fields for a document job. Each row
     represents one named field (e.g. "hemoglobin", "drug_name") with its
@@ -174,7 +177,12 @@ def _parse_numeric_value(value: Any) -> float | None:
     if value is None:
         return None
 
+    s = str(value).strip().replace(",", "")
+    match = re.search(r"-?\d+(?:\.\d+)?", s)
+    if not match:
+        return None
+
     try:
-        return float(str(value).strip().replace(",", ""))
+        return float(match.group(0))
     except ValueError:
         return None

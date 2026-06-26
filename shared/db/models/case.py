@@ -25,9 +25,6 @@ class Case(Base):
 
     documents: Mapped[list["Document"]] = relationship("Document", back_populates="case", cascade="all, delete-orphan")
     jobs: Mapped[list["Job"]] = relationship("Job", back_populates="case", cascade="all, delete-orphan")
-    timelines: Mapped[list["Timeline"]] = relationship("Timeline", back_populates="case", cascade="all, delete-orphan")
-    summaries: Mapped[list["Summary"]] = relationship("Summary", back_populates="case", cascade="all, delete-orphan")
-    opinions: Mapped[list["Opinion"]] = relationship("Opinion", back_populates="case", cascade="all, delete-orphan")
 
 
 class Document(Base):
@@ -57,36 +54,3 @@ class Job(Base):
     error_message: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
 
     case: Mapped["Case"] = relationship("Case", back_populates="jobs")
-
-
-class Timeline(Base):
-    __tablename__ = "timelines"
-
-    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
-    case_id: Mapped[str] = mapped_column(String(64), ForeignKey("cases.id", ondelete="CASCADE"), nullable=False, index=True)
-    timeline_json: Mapped[str] = mapped_column(Text, nullable=False)
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=datetime.utcnow)
-
-    case: Mapped["Case"] = relationship("Case", back_populates="timelines")
-
-
-class Summary(Base):
-    __tablename__ = "summaries"
-
-    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
-    case_id: Mapped[str] = mapped_column(String(64), ForeignKey("cases.id", ondelete="CASCADE"), nullable=False, index=True)
-    summary: Mapped[str] = mapped_column(Text, nullable=False)
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=datetime.utcnow)
-
-    case: Mapped["Case"] = relationship("Case", back_populates="summaries")
-
-
-class Opinion(Base):
-    __tablename__ = "opinions"
-
-    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
-    case_id: Mapped[str] = mapped_column(String(64), ForeignKey("cases.id", ondelete="CASCADE"), nullable=False, index=True)
-    opinion: Mapped[str] = mapped_column(Text, nullable=False)
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=datetime.utcnow)
-
-    case: Mapped["Case"] = relationship("Case", back_populates="opinions")
