@@ -24,18 +24,6 @@ async def get_current_user(
     if not user_id or not role or not email:
         raise HTTPException(status_code=401, detail="Invalid token")
 
-    # Hardcoded .env admin — no DB row
-    if user_id == "00000000-0000-0000-0000-000000000001":
-        from typing import Literal, cast
-        return UserProfile(
-            user_id=UUID(user_id),
-            email=email,
-            role=cast(Literal["admin", "user"], role),
-            full_name="Administrator",
-            created_at=datetime.utcnow(),
-            updated_at=datetime.utcnow(),
-        )
-
     # DB user
     from shared.db.models.user import User
     db_user = db.query(User).filter(User.user_id == user_id).first()

@@ -64,17 +64,31 @@ def get_db() -> Generator[Session, None, None]:
 
 
 def init_db() -> None:
-    """Create all tables from ORM metadata. Dev / test use only.
-
-    In production, use Alembic migrations instead.
-
-    NOTE: You must import all model modules before calling this so that
-    Base.metadata is aware of all tables. Example::
-
-        from shared.db.models import document, extraction  # noqa
-        init_db()
-    """
+    """Create all tables from ORM metadata and seed super admin user if not present."""
     Base.metadata.create_all(bind=_engine)
+    try:
+        db = SessionLocal()
+        from shared.db.models.user import User
+        from product.auth.password import hash_password
+        from uuid import uuid4
+        
+        admin_user = db.query(User).filter(User.role == "admin").first()
+        if not admin_user:
+            settings = get_settings()
+            admin_email = settings.ADMIN_USERNAME if "@" in settings.ADMIN_USERNAME else "admin@documed.ai"
+            new_admin = User(
+                user_id=str(uuid4()),
+                email=admin_email,
+                password_hash=hash_password(settings.ADMIN_PASSWORD),
+                full_name="System Super Administrator",
+                role="admin",
+            )
+            db.add(new_admin)
+            db.commit()
+            print(f"[Seed] Created super admin user in DB: {admin_email}")
+        db.close()
+    except Exception as e:
+        print(f"[Seed] Note: could not check/seed admin user: {e}")
 
 
 def get_engine():

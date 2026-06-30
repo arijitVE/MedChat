@@ -29,33 +29,28 @@ def signup(body: SignupRequest, db: Session) -> TokenResponse:
         raise HTTPException(status_code=409, detail="Email already registered")
 
     user_id = str(uuid4())
+    # Users signing up through public endpoint are always normal users
     new_user = User(
         user_id=user_id,
         email=body.email,
         password_hash=hash_password(body.password),
         full_name=body.full_name,
-        role=body.role,
+        role="user",
     )
     db.add(new_user)
     db.commit()
     
-    return _token_response(user_id, body.role, body.email)
+    return _token_response(user_id, "user", body.email)
 
 
 def login(body: LoginRequest, db: Session) -> TokenResponse:
-    # 1. Try DB user
-    db_user = db.query(User).filter(User.email == body.email).first()
+    lookup_email = body.email.strip()
+    db_user = db.query(User).filter((User.email == lookup_email) | (User.email == f"{lookup_email}@documed.ai")).first()
     if db_user:
         if verify_password(body.password, db_user.password_hash):
             return _token_response(db_user.user_id, db_user.role, db_user.email)
         raise HTTPException(status_code=401, detail="Invalid credentials")
 
-    # 2. Fallback to hardcoded admin in .env
-    settings = get_settings()
-    if body.email == settings.ADMIN_USERNAME and body.password == settings.ADMIN_PASSWORD:
-        admin_uuid = UUID("00000000-0000-0000-0000-000000000001")
-        return _token_response(admin_uuid, "admin", body.email)
-    
     raise HTTPException(status_code=401, detail="Invalid credentials")
 
 

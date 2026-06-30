@@ -21,6 +21,7 @@ init_db()
 from product.api.auth_routes import router as auth_router
 from product.api.case_routes import router as case_router
 from product.api.user_routes import router as user_router
+from product.api.admin_routes import router as admin_router
 
 app = FastAPI(
     title="DocuMed-AI API",
@@ -38,6 +39,7 @@ app.add_middleware(
 app.include_router(auth_router)
 app.include_router(case_router)
 app.include_router(user_router)
+app.include_router(admin_router)
 
 
 @app.get("/health")

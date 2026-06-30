@@ -2,7 +2,7 @@ import uuid
 import os
 from typing import List
 
-from fastapi import APIRouter, Depends, UploadFile, File, HTTPException, BackgroundTasks
+from fastapi import APIRouter, Depends, UploadFile, File, HTTPException, BackgroundTasks, Response
 from sqlalchemy.orm import Session
 
 from shared.db.session import get_db
@@ -98,6 +98,28 @@ def upload_file(case_id: str, file: UploadFile = File(...), db: Session = Depend
     db.commit()
     db.refresh(doc)
     return doc
+
+@router.get("/{case_id}/documents/{document_id}/download")
+def download_document(case_id: str, document_id: str, db: Session = Depends(get_db), current_user = Depends(get_current_user)):
+    case = db.get(Case, case_id)
+    if not case or str(case.user_id) != str(current_user.user_id):
+        raise HTTPException(status_code=404, detail="Case not found")
+    doc = db.get(Document, document_id)
+    if not doc or doc.case_id != case_id:
+        raise HTTPException(status_code=404, detail="Document not found")
+        
+    from storage.backend import get_storage
+    storage = get_storage()
+    try:
+        file_bytes = storage.download_file(doc.storage_path)
+    except Exception as e:
+        raise HTTPException(status_code=404, detail=f"File not found in storage: {str(e)}")
+        
+    return Response(
+        content=file_bytes,
+        media_type=doc.mime_type or "application/octet-stream",
+        headers={"Content-Disposition": f'inline; filename="{doc.file_name}"'}
+    )
 
 @router.post("/{case_id}/process", response_model=JobResponse)
 def process_case(case_id: str, background_tasks: BackgroundTasks, db: Session = Depends(get_db), current_user = Depends(get_current_user)):

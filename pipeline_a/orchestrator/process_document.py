@@ -120,24 +120,37 @@ def run(
         
         # Persist to MongoDB
         now = datetime.utcnow()
+        col_fields = get_collection("case_clinical_fields")
+        existing_doc = col_fields.find_one({"case_id": case_id})
+        existing_fields = existing_doc.get("fields", []) if existing_doc else []
+        
+        # Keep fields that do not belong to the current document_id (idempotency)
+        preserved_fields = [
+            f for f in existing_fields 
+            if f.get("document_id") != document_id
+        ]
+        
+        new_fields = [
+            {
+                "document_id": document_id,
+                "name": f.name,
+                "value": f.value,
+                "numeric_value": getattr(f, "numeric_value", None),
+                "unit": getattr(f, "unit", None),
+                "ref_low": getattr(f, "ref_low", None),
+                "ref_high": getattr(f, "ref_high", None),
+                "is_abnormal": getattr(f, "is_abnormal", None),
+                "collection_date": getattr(f, "collection_date", None)
+            }
+            for f in scored_fields
+        ]
+        
         clinical_doc = {
             "case_id": case_id,
-            "fields": [
-                {
-                    "name": f.name,
-                    "value": f.value,
-                    "numeric_value": getattr(f, "numeric_value", None),
-                    "unit": getattr(f, "unit", None),
-                    "ref_low": getattr(f, "ref_low", None),
-                    "ref_high": getattr(f, "ref_high", None),
-                    "is_abnormal": getattr(f, "is_abnormal", None),
-                    "collection_date": getattr(f, "collection_date", None)
-                }
-                for f in scored_fields
-            ],
+            "fields": preserved_fields + new_fields,
             "updated_at": now
         }
-        get_collection("case_clinical_fields").update_one(
+        col_fields.update_one(
             {"case_id": case_id},
             {"$set": clinical_doc},
             upsert=True
