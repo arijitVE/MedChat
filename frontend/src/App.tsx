@@ -1,6 +1,6 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { api, onUnauthorized, setAuthToken } from './api';
-import { Case, CaseDocument, CaseSummary, OpinionDraft, Message, User } from './types';
+import { Case, CaseDocument, CaseSummary, OpinionDraft, Message, User, ChatThread } from './types';
 import Header from './components/Header';
 import Sidebar from './components/Sidebar';
 import CaseList from './components/CaseList';
@@ -10,6 +10,7 @@ import SummaryDetail from './components/SummaryDetail';
 import OpinionDraftView from './components/OpinionDraftView';
 import CaseIntelligenceChat from './components/CaseIntelligenceChat';
 import AuthScreens from './components/AuthScreens';
+import AdminPanel from './components/AdminPanel';
 
 export default function App() {
   // Authentication status
@@ -37,8 +38,12 @@ export default function App() {
           setCurrentUser({
             fullName: userData.full_name,
             email: userData.email,
-            isLoggedIn: true
+            isLoggedIn: true,
+            role: userData.role
           });
+          if (userData.role === 'admin') {
+            setShowAdminPanel(true);
+          }
         } catch (err) {
           console.error("Failed to restore session:", err);
           handleLogout();
@@ -92,20 +97,26 @@ export default function App() {
   const [activeTab, setActiveTab] = useState<'documents' | 'summary' | 'opinion' | 'chat'>('documents');
   const [isProcessing, setIsProcessing] = useState(false);
   const [activeJobId, setActiveJobId] = useState<string | null>(null);
+  const [showAdminPanel, setShowAdminPanel] = useState(false);
 
   // Authentication callbacks
-  const handleLoginSuccess = (name: string, mail: string) => {
+  const handleLoginSuccess = (name: string, mail: string, role?: 'admin' | 'user') => {
     setCurrentUser({
       fullName: name,
       email: mail,
-      isLoggedIn: true
+      isLoggedIn: true,
+      role: role
     });
+    if (role === 'admin') {
+      setShowAdminPanel(true);
+    }
   };
 
   const handleLogout = () => {
     setAuthToken(null);
     setCurrentUser(prev => ({ ...prev, isLoggedIn: false }));
     setActiveCaseId(null);
+    setShowAdminPanel(false);
   };
 
   // Case CRUD actions
@@ -183,6 +194,41 @@ export default function App() {
     }));
   };
 
+  const sidebarFileInputRef = useRef<HTMLInputElement>(null);
+
+  const handleSidebarFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files.length > 0 && activeCase) {
+      const file = e.target.files[0];
+      const validTypes = ['application/pdf', 'image/jpeg', 'image/png', 'image/jpg'];
+      const isPdfExt = file.name.toLowerCase().endsWith('.pdf');
+      const isImgExt = file.name.toLowerCase().match(/\.(jpg|jpeg|png)$/);
+      
+      if (!validTypes.includes(file.type) && !isPdfExt && !isImgExt) {
+        alert('Only PDF and Image files (JPG, PNG) are supported at this time.');
+        e.target.value = '';
+        return;
+      }
+      try {
+        const res = await api.uploadDocument(activeCase.id, file);
+        const newDoc: CaseDocument = {
+          id: res.id,
+          name: res.file_name,
+          uuid: res.id.substring(0, 8),
+          size: 'Unknown',
+          uploadedAt: new Date(res.uploaded_at).toLocaleDateString('en-US', {
+            year: 'numeric', month: 'short', day: 'numeric'
+          }),
+          status: res.status
+        };
+        handleUpdateCaseDocuments([...activeCase.documents, newDoc]);
+      } catch (err) {
+        alert('Failed to upload file');
+        console.error(err);
+      }
+      e.target.value = '';
+    }
+  };
+
   const handleUpdateOpinion = (updatedOpinion: OpinionDraft) => {
     if (!activeCaseId) return;
     setCases(cases.map(c => {
@@ -198,11 +244,16 @@ export default function App() {
     handleUpdateChatHistory([...activeCase.chatHistory, msg]);
   };
 
-  const handleUpdateChatHistory = (msgs: Message[]) => {
+  const handleUpdateChatHistory = (msgs: Message[], threads?: ChatThread[], activeThreadId?: string) => {
     if (!activeCaseId) return;
     setCases(cases.map(c => {
       if (c.id === activeCaseId) {
-        return { ...c, chatHistory: msgs };
+        return {
+          ...c,
+          chatHistory: msgs,
+          ...(threads ? { chatThreads: threads } : {}),
+          ...(activeThreadId ? { activeThreadId } : {})
+        };
       }
       return c;
     }));
@@ -316,9 +367,17 @@ export default function App() {
         onStatusFilterChange={setStatusFilter}
         processingCount={processingCount}
         completedCount={completedCount}
+        onOpenAdmin={currentUser.role === 'admin' ? () => setShowAdminPanel(true) : undefined}
       />
 
       <div className="flex flex-1 overflow-hidden">
+        <input
+          type="file"
+          ref={sidebarFileInputRef}
+          onChange={handleSidebarFileUpload}
+          accept=".pdf,.png,.jpg,.jpeg"
+          className="hidden"
+        />
         
         {/* Dynamic Sidebar Navigation */}
         <Sidebar
@@ -326,17 +385,21 @@ export default function App() {
           activeTab={activeTab}
           onTabChange={setActiveTab}
           onNavigateHome={handleNavigateHome}
+          onOpenAdmin={currentUser.role === 'admin' ? () => setShowAdminPanel(true) : undefined}
           onNewDocumentClick={() => {
             if (activeCaseId) {
               setActiveTab('documents');
               setIsProcessing(false);
+              sidebarFileInputRef.current?.click();
             }
           }}
         />
 
         {/* Primary Content Hub area */}
         <main className="flex-1 flex flex-col overflow-hidden h-full">
-          {activeCaseId === null ? (
+          {showAdminPanel && currentUser.role === 'admin' ? (
+            <AdminPanel onBack={() => setShowAdminPanel(false)} />
+          ) : activeCaseId === null ? (
             <CaseList
               cases={cases}
               onSelectCase={handleSelectCase}

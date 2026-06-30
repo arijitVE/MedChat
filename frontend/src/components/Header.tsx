@@ -15,6 +15,7 @@ interface HeaderProps {
   onStatusFilterChange: (filter: 'ALL' | 'PROCESSING' | 'COMPLETED') => void;
   processingCount: number;
   completedCount: number;
+  onOpenAdmin?: () => void;
 }
 
 export default function Header({
@@ -29,7 +30,8 @@ export default function Header({
   statusFilter,
   onStatusFilterChange,
   processingCount,
-  completedCount
+  completedCount,
+  onOpenAdmin,
 }: HeaderProps) {
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
@@ -133,13 +135,16 @@ export default function Header({
           </button>
         </div>
 
-        {/* Settings Icon */}
-        <button 
-          className="text-gray-500 hover:bg-gray-100 p-1.5 rounded-full transition-colors cursor-pointer"
-          onClick={() => alert("Workspace Administration preferences are locked under HIPAA policy.")}
-        >
-          <Settings className="w-5 h-5 text-gray-600" />
-        </button>
+        {/* Settings Icon - Only visible for admin users */}
+        {onOpenAdmin && (
+          <button 
+            className="text-gray-500 hover:bg-gray-100 p-1.5 rounded-full transition-colors cursor-pointer"
+            onClick={() => onOpenAdmin()}
+            title="Open System Administration Panel"
+          >
+            <Settings className="w-5 h-5 text-gray-600" />
+          </button>
+        )}
 
         {/* User Info & Avatar */}
         <div 
@@ -172,10 +177,10 @@ export default function Header({
           {/* Dropdown Menu */}
           {isDropdownOpen && (
             <div 
-              className="absolute right-0 top-12 mt-1.5 w-64 bg-white border border-gray-200/80 rounded-xl shadow-lg z-50 text-left cursor-default"
+              className="absolute right-0 top-12 mt-1.5 w-64 bg-white border border-gray-200/80 rounded-xl shadow-lg z-50 text-left cursor-default overflow-hidden"
               onClick={(e) => e.stopPropagation()}
             >
-              <div className="p-4 flex flex-col">
+              <div className="p-4 flex flex-col bg-gray-50/50">
                 <div className="font-sans text-sm font-semibold text-gray-900">
                   {currentUser.fullName}
                 </div>
@@ -183,6 +188,22 @@ export default function Header({
                   {currentUser.email}
                 </div>
               </div>
+              {onOpenAdmin && (
+                <>
+                  <div className="border-t border-gray-100"></div>
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setIsDropdownOpen(false);
+                      onOpenAdmin();
+                    }}
+                    className="w-full text-left px-4 py-3 flex items-center gap-2.5 text-indigo-600 hover:bg-slate-50 font-sans text-sm transition-colors cursor-pointer border-none"
+                  >
+                    <Settings className="w-4 h-4 text-indigo-500" />
+                    <span className="font-medium text-[13px]">Admin Control Center</span>
+                  </button>
+                </>
+              )}
               <div className="border-t border-gray-100"></div>
               <button
                 onClick={(e) => {
@@ -190,7 +211,7 @@ export default function Header({
                   setIsDropdownOpen(false);
                   onLogout();
                 }}
-                className="w-full text-left px-4 py-3 flex items-center gap-2 text-red-600 hover:bg-slate-50 font-sans text-sm transition-colors cursor-pointer border-none"
+                className="w-full text-left px-4 py-3 flex items-center gap-2.5 text-red-600 hover:bg-slate-50 font-sans text-sm transition-colors cursor-pointer border-none"
               >
                 <LogOut className="w-4 h-4 text-red-500" />
                 <span className="font-medium text-[13px]">Log Out</span>

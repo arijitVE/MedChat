@@ -20,6 +20,15 @@ export interface Case {
   summary?: CaseSummary;
   opinion?: OpinionDraft;
   chatHistory: Message[];
+  chatThreads?: ChatThread[];
+  activeThreadId?: string;
+}
+
+export interface ChatThread {
+  id: string;
+  title: string;
+  date: string;
+  messages: Message[];
 }
 
 export interface CaseSummary {
@@ -62,4 +71,5 @@ export interface User {
   fullName: string;
   email: string;
   isLoggedIn: boolean;
+  role?: 'admin' | 'user';
 }

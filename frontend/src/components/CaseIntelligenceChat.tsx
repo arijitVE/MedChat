@@ -1,12 +1,12 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { api } from '../api';
-import { Send, CheckCircle, Lightbulb, Clipboard, PlusCircle, Bookmark, AlertTriangle } from 'lucide-react';
-import { Case, Message } from '../types';
+import { Send, CheckCircle, Lightbulb, Clipboard, PlusCircle, Bookmark, AlertTriangle, MessageSquare, Trash2 } from 'lucide-react';
+import { Case, Message, ChatThread } from '../types';
 
 interface CaseIntelligenceChatProps {
   activeCase: Case;
   onSendMessage: (msg: Message) => void;
-  onUpdateChatHistory: (msgs: Message[]) => void;
+  onUpdateChatHistory: (msgs: Message[], threads?: ChatThread[], activeId?: string) => void;
 }
 
 export default function CaseIntelligenceChat({
@@ -17,10 +17,99 @@ export default function CaseIntelligenceChat({
   const [inputText, setInputText] = useState('');
   const chatBottomRef = useRef<HTMLDivElement>(null);
 
+  const [threads, setThreads] = useState<ChatThread[]>(() => {
+    if (activeCase.chatThreads && activeCase.chatThreads.length > 0) {
+      return activeCase.chatThreads;
+    }
+    return [
+      {
+        id: 'thread-default',
+        title: activeCase.chatHistory.length > 0 ? (activeCase.chatHistory[0].content.slice(0, 24) + '...') : 'Initial Case Inquiry',
+        date: 'Today',
+        messages: activeCase.chatHistory
+      }
+    ];
+  });
+
+  const [activeThreadId, setActiveThreadId] = useState<string>(() => {
+    return activeCase.activeThreadId || (activeCase.chatThreads && activeCase.chatThreads.length > 0 ? activeCase.chatThreads[0].id : 'thread-default');
+  });
+
+  // Keep state synced if activeCase changes
+  useEffect(() => {
+    if (activeCase.chatThreads && activeCase.chatThreads.length > 0) {
+      setThreads(activeCase.chatThreads);
+    }
+    if (activeCase.activeThreadId) {
+      setActiveThreadId(activeCase.activeThreadId);
+    }
+  }, [activeCase.id]);
+
   // Auto-scroll to bottom of chat
   useEffect(() => {
     chatBottomRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [activeCase.chatHistory]);
+
+  const updateActiveThreadMessages = (newMsgs: Message[], firstUserText?: string) => {
+    const updatedThreads = threads.map(t => {
+      if (t.id === activeThreadId) {
+        let newTitle = t.title;
+        if ((t.title === 'New Conversation' || t.title === 'Initial Case Inquiry') && firstUserText) {
+          newTitle = firstUserText.slice(0, 26) + (firstUserText.length > 26 ? '...' : '');
+        }
+        return {
+          ...t,
+          title: newTitle,
+          messages: newMsgs
+        };
+      }
+      return t;
+    });
+    setThreads(updatedThreads);
+    onUpdateChatHistory(newMsgs, updatedThreads, activeThreadId);
+  };
+
+  const handleNewChat = () => {
+    const newId = 'thread-' + Date.now();
+    const newThread: ChatThread = {
+      id: newId,
+      title: 'New Conversation',
+      date: 'Today',
+      messages: []
+    };
+    const updatedThreads = [newThread, ...threads];
+    setThreads(updatedThreads);
+    setActiveThreadId(newId);
+    onUpdateChatHistory([], updatedThreads, newId);
+  };
+
+  const handleSelectThread = (threadId: string) => {
+    const target = threads.find(t => t.id === threadId);
+    if (target) {
+      setActiveThreadId(threadId);
+      onUpdateChatHistory(target.messages, threads, threadId);
+    }
+  };
+
+  const handleDeleteThread = (e: React.MouseEvent, threadId: string) => {
+    e.stopPropagation();
+    const filtered = threads.filter(t => t.id !== threadId);
+    if (filtered.length === 0) {
+      const newId = 'thread-' + Date.now();
+      const newThread: ChatThread = { id: newId, title: 'New Conversation', date: 'Today', messages: [] };
+      setThreads([newThread]);
+      setActiveThreadId(newId);
+      onUpdateChatHistory([], [newThread], newId);
+    } else {
+      setThreads(filtered);
+      if (activeThreadId === threadId) {
+        setActiveThreadId(filtered[0].id);
+        onUpdateChatHistory(filtered[0].messages, filtered, filtered[0].id);
+      } else {
+        onUpdateChatHistory(activeCase.chatHistory, filtered, activeThreadId);
+      }
+    }
+  };
 
   const handleSend = async (textToSend?: string) => {
     const text = textToSend || inputText;
@@ -34,7 +123,8 @@ export default function CaseIntelligenceChat({
       content: text
     };
 
-    onUpdateChatHistory([...activeCase.chatHistory, userMsg]);
+    const userMsgs = [...activeCase.chatHistory, userMsg];
+    updateActiveThreadMessages(userMsgs, text);
     setInputText('');
 
     try {
@@ -47,7 +137,7 @@ export default function CaseIntelligenceChat({
         content: res.reply
       };
       
-      onUpdateChatHistory([...activeCase.chatHistory, userMsg, aiMsg]);
+      updateActiveThreadMessages([...userMsgs, aiMsg]);
     } catch (err) {
       console.error("Chat failed", err);
       const errorMsg: Message = {
@@ -56,14 +146,14 @@ export default function CaseIntelligenceChat({
         time: new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }),
         content: "Sorry, I encountered an error while processing your request."
       };
-      onUpdateChatHistory([...activeCase.chatHistory, userMsg, errorMsg]);
+      updateActiveThreadMessages([...userMsgs, errorMsg]);
     }
   };
 
   return (
     <div className="flex-1 flex overflow-hidden h-full">
       
-      {/* Left Chat Window main panel */}
+      {/* Main Chat Window panel */}
       <div className="flex-1 flex flex-col justify-between bg-white overflow-hidden h-full border-r border-gray-200">
         
         {/* Chat message streams list */}
@@ -221,54 +311,60 @@ export default function CaseIntelligenceChat({
               Secure
             </span>
           </h4>
-          <ul className="space-y-1.5 text-[11px] font-sans">
-            <li className="flex items-center gap-2 p-1 text-gray-800">
-              <span className="material-symbols-outlined text-[16px] text-green-600">check_box</span>
-              <span className="truncate">ER_Admit_Log_0310.pdf</span>
-            </li>
-            <li className="flex items-center gap-2 p-1 text-gray-800">
-              <span className="material-symbols-outlined text-[16px] text-green-600">check_box</span>
-              <span className="truncate">Surgical_Report_Final.pdf</span>
-            </li>
-            <li className="flex items-center gap-2 p-1 text-gray-800">
-              <span className="material-symbols-outlined text-[16px] text-green-600">check_box</span>
-              <span className="truncate">Billing_Statement_Q1.pdf</span>
-            </li>
+          <ul className="space-y-1.5 text-[11px] font-sans max-h-48 overflow-y-auto pr-1">
+            {activeCase.documents.length === 0 ? (
+              <li className="text-gray-400 italic py-2 text-[10px]">No reports uploaded yet.</li>
+            ) : (
+              activeCase.documents.map((doc) => (
+                <li key={doc.id} className="flex items-center gap-2 p-1 text-gray-800 hover:bg-gray-200/60 rounded transition-colors" title={doc.name}>
+                  <span className="material-symbols-outlined text-[16px] text-green-600 shrink-0">check_box</span>
+                  <span className="truncate font-medium">{doc.name}</span>
+                </li>
+              ))
+            )}
           </ul>
         </div>
 
-        {/* Section: Suggested Citations */}
-        <div>
-          <h4 className="font-sans font-bold text-[10px] text-gray-500 uppercase tracking-widest mb-2 border-b border-gray-200 pb-1.5 flex items-center gap-1">
-            <Lightbulb className="w-3.5 h-3.5 text-amber-500" />
-            <span>Suggested Citations</span>
+        {/* Section: Chat History */}
+        <div className="flex-1 flex flex-col min-h-0 overflow-hidden">
+          <h4 className="font-sans font-bold text-[10px] text-gray-500 uppercase tracking-widest mb-2 border-b border-gray-200 pb-1.5 flex items-center gap-1 shrink-0">
+            <MessageSquare className="w-3.5 h-3.5 text-gray-700" />
+            <span>Chat History</span>
           </h4>
-          <div className="space-y-2">
-            <div
-              onClick={() => handleSend("What does the orthopedic surgery report page 4 note about knee flex?")}
-              className="bg-white border border-gray-200 p-2.5 rounded-lg hover:border-black cursor-pointer shadow-[0px_2px_4px_rgba(0,0,0,0.02)] transition-all group"
-            >
-              <p className="text-[10px] font-semibold text-black group-hover:underline">Orthopedic report pg. 4</p>
-              <p className="text-[9px] text-gray-550 leading-relaxed mt-0.5">"Knee extension restricted post-op"</p>
-            </div>
-
-            <div
-              onClick={() => handleSend("Analyze ER Admit timeline and nitgroglycerin administration delay.")}
-              className="bg-white border border-gray-200 p-2.5 rounded-lg hover:border-black cursor-pointer shadow-[0px_2px_4px_rgba(0,0,0,0.02)] transition-all group"
-            >
-              <p className="text-[10px] font-semibold text-black group-hover:underline">ER Admit Timeline</p>
-              <p className="text-[9px] text-gray-550 leading-relaxed mt-0.5">Nitroglycerin delivery delayed 45m.</p>
-            </div>
+          <div className="space-y-2 overflow-y-auto flex-1 pr-1">
+            {threads.map(thread => (
+              <div
+                key={thread.id}
+                onClick={() => handleSelectThread(thread.id)}
+                className={`bg-white border p-2.5 rounded-lg hover:border-black cursor-pointer shadow-[0px_2px_4px_rgba(0,0,0,0.02)] transition-all group flex items-start justify-between gap-2 ${
+                  thread.id === activeThreadId ? 'border-black bg-gray-50/80 font-medium' : 'border-gray-200'
+                }`}
+              >
+                <div className="overflow-hidden">
+                  <p className="text-[10px] font-semibold text-black group-hover:underline truncate">{thread.title}</p>
+                  <p className="text-[9px] text-gray-550 leading-relaxed mt-0.5">{thread.date} &bull; {thread.messages.length} msgs</p>
+                </div>
+                <button
+                  onClick={(e) => handleDeleteThread(e, thread.id)}
+                  className="opacity-0 group-hover:opacity-100 text-gray-400 hover:text-red-600 p-0.5 rounded transition-opacity shrink-0"
+                  title="Delete chat"
+                >
+                  <Trash2 className="w-3.5 h-3.5" />
+                </button>
+              </div>
+            ))}
           </div>
         </div>
 
-        {/* Disclaimer Warning */}
-        <div className="mt-auto bg-amber-50 rounded-lg p-2.5 border border-[#dec29a] text-[10px] leading-relaxed text-amber-900 select-none">
-          <p className="font-bold flex items-center gap-1 mb-0.5">
-            <span className="material-symbols-outlined text-amber-700 text-[14px]">warning</span>
-            <span>HIPAA Workspace</span>
-          </p>
-          Queries and synthesized text are scoped strictly to verified Case #8821 documentation.
+        {/* New Chat Button at the bottom */}
+        <div className="mt-auto pt-2 shrink-0">
+          <button
+            onClick={handleNewChat}
+            className="w-full bg-black hover:opacity-90 text-white py-2.5 px-3 rounded-lg font-semibold text-xs flex items-center justify-center gap-2 transition-opacity shadow-sm cursor-pointer"
+          >
+            <PlusCircle className="w-4 h-4" />
+            <span>New Chat</span>
+          </button>
         </div>
       </div>
     </div>

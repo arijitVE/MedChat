@@ -7,6 +7,7 @@ interface SidebarProps {
   onTabChange: (tab: 'documents' | 'summary' | 'opinion' | 'chat') => void;
   onNewDocumentClick: () => void;
   onNavigateHome: () => void;
+  onOpenAdmin?: () => void;
 }
 
 export default function Sidebar({
@@ -14,7 +15,8 @@ export default function Sidebar({
   activeTab,
   onTabChange,
   onNewDocumentClick,
-  onNavigateHome
+  onNavigateHome,
+  onOpenAdmin
 }: SidebarProps) {
   const isCaseSelected = !!activeCase;
 
@@ -65,9 +67,19 @@ export default function Sidebar({
                 <h2 className="font-sans text-md font-bold text-black leading-tight">
                   MedLegal Review
                 </h2>
-                <p className="text-[10px] text-gray-500 uppercase tracking-wider font-semibold">
-                  Administrator Portal
-                </p>
+                {onOpenAdmin ? (
+                  <p
+                    onClick={onOpenAdmin}
+                    className="text-[10px] text-indigo-600 uppercase tracking-wider font-semibold hover:underline cursor-pointer"
+                    title="Open Admin Control Center"
+                  >
+                    Administrator Portal
+                  </p>
+                ) : (
+                  <p className="text-[10px] text-gray-500 uppercase tracking-wider font-semibold">
+                    Reviewer Workspace
+                  </p>
+                )}
               </div>
             </div>
             
@@ -88,45 +100,42 @@ export default function Sidebar({
         <nav className="flex-1 flex flex-col gap-1">
           <button
             onClick={() => onTabChange('documents')}
-            className={`flex items-center gap-3 px-3 py-2 rounded-lg font-sans text-xs transition-all cursor-pointer ${
+            className={`flex items-center gap-3 px-3 py-2 rounded-lg font-medium text-xs transition-colors cursor-pointer ${
               activeTab === 'documents'
-                ? 'bg-[#d0e1fb] text-[#131b2e] font-semibold'
+                ? 'bg-[#dce2f9] text-[#131b2e] font-semibold'
                 : 'text-gray-600 hover:bg-gray-100'
             }`}
           >
             <span className="material-symbols-outlined text-[18px]">description</span>
             <span>Documents</span>
           </button>
-
           <button
             onClick={() => onTabChange('summary')}
-            className={`flex items-center gap-3 px-3 py-2 rounded-lg font-sans text-xs transition-all cursor-pointer ${
+            className={`flex items-center gap-3 px-3 py-2 rounded-lg font-medium text-xs transition-colors cursor-pointer ${
               activeTab === 'summary'
-                ? 'bg-[#d0e1fb] text-[#131b2e] font-semibold'
+                ? 'bg-[#dce2f9] text-[#131b2e] font-semibold'
                 : 'text-gray-600 hover:bg-gray-100'
             }`}
           >
-            <span className="material-symbols-outlined text-[18px]">analytics</span>
+            <span className="material-symbols-outlined text-[18px]">summarize</span>
             <span>Summary</span>
           </button>
-
           <button
             onClick={() => onTabChange('opinion')}
-            className={`flex items-center gap-3 px-3 py-2 rounded-lg font-sans text-xs transition-all cursor-pointer ${
+            className={`flex items-center gap-3 px-3 py-2 rounded-lg font-medium text-xs transition-colors cursor-pointer ${
               activeTab === 'opinion'
-                ? 'bg-[#d0e1fb] text-[#131b2e] font-semibold'
+                ? 'bg-[#dce2f9] text-[#131b2e] font-semibold'
                 : 'text-gray-600 hover:bg-gray-100'
             }`}
           >
             <span className="material-symbols-outlined text-[18px]">gavel</span>
             <span>Opinion</span>
           </button>
-
           <button
             onClick={() => onTabChange('chat')}
-            className={`flex items-center gap-3 px-3 py-2 rounded-lg font-sans text-xs transition-all cursor-pointer ${
+            className={`flex items-center gap-3 px-3 py-2 rounded-lg font-medium text-xs transition-colors cursor-pointer ${
               activeTab === 'chat'
-                ? 'bg-[#d0e1fb] text-[#131b2e] font-semibold'
+                ? 'bg-[#dce2f9] text-[#131b2e] font-semibold'
                 : 'text-gray-600 hover:bg-gray-100'
             }`}
           >
@@ -142,6 +151,15 @@ export default function Sidebar({
 
       {/* Footer Navigation */}
       <div className="mt-auto border-t border-gray-200 pt-3 flex flex-col gap-1">
+        {onOpenAdmin && (
+          <button
+            onClick={onOpenAdmin}
+            className="flex items-center gap-3 px-3 py-2 rounded-lg text-indigo-700 font-semibold text-xs bg-indigo-50/80 hover:bg-indigo-100 transition-all cursor-pointer text-left w-full border border-indigo-200/60"
+          >
+            <span className="material-symbols-outlined text-[18px]">admin_panel_settings</span>
+            <span>Admin Panel</span>
+          </button>
+        )}
         <button
           onClick={() => alert("Archive is stored in encrypted deep glacier directories complying with HIPAA.")}
           className="flex items-center gap-3 px-3 py-2 rounded-lg text-gray-600 text-xs hover:bg-gray-100 transition-all cursor-pointer text-left w-full"

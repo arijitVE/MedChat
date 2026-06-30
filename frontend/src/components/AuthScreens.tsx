@@ -3,7 +3,7 @@ import { Lock, Shield, Eye, EyeOff, ArrowRight } from 'lucide-react';
 import { api, setAuthToken } from '../api';
 
 interface AuthScreensProps {
-  onLoginSuccess: (fullName: string, email: string) => void;
+  onLoginSuccess: (fullName: string, email: string, role?: 'admin' | 'user') => void;
 }
 
 export default function AuthScreens({ onLoginSuccess }: AuthScreensProps) {
@@ -36,9 +36,9 @@ export default function AuthScreens({ onLoginSuccess }: AuthScreensProps) {
         setAuthToken(data.access_token);
       }
       
-      const me = await api.getMe().catch(() => ({ full_name: fullName || email }));
+      const me = await api.getMe().catch(() => ({ full_name: fullName || email, role: 'user' as const }));
       
-      onLoginSuccess(me.full_name || fullName || 'Dr. Julian Pierce', email);
+      onLoginSuccess(me.full_name || fullName || 'Dr. Julian Pierce', email, me.role);
     } catch (err: any) {
       setError(err.message || 'Authentication failed');
     } finally {

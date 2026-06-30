@@ -22,11 +22,11 @@ export function onUnauthorized(callback: () => void) {
 
 async function fetchWithAuth(url: string, options: RequestInit = {}) {
   const headers = new Headers(options.headers || {});
-  
+
   if (authToken) {
     headers.set('Authorization', `Bearer ${authToken}`);
   }
-  
+
   if (!(options.body instanceof FormData)) {
     if (!headers.has('Content-Type')) {
       headers.set('Content-Type', 'application/json');
@@ -72,16 +72,16 @@ export const api = {
   }),
 
   getMe: () => fetchWithAuth('/users/me'),
-  
+
   listCases: () => fetchWithAuth('/api/v1/cases'),
-  
+
   getCase: (caseId: string) => fetchWithAuth(`/api/v1/cases/${caseId}`),
-  
+
   createCase: (data: { title: string; description?: string }) => fetchWithAuth('/api/v1/cases', {
     method: 'POST',
     body: JSON.stringify(data),
   }),
-  
+
   uploadDocument: (caseId: string, file: File) => {
     const formData = new FormData();
     formData.append('file', file);
@@ -90,19 +90,36 @@ export const api = {
       body: formData,
     });
   },
-  
+
   processCase: (caseId: string) => fetchWithAuth(`/api/v1/cases/${caseId}/process`, {
     method: 'POST',
   }),
-  
+
   getJobStatus: (caseId: string, jobId: string) => fetchWithAuth(`/api/v1/cases/${caseId}/jobs/${jobId}`),
-  
+
   getSummary: (caseId: string) => fetchWithAuth(`/api/v1/cases/${caseId}/summary`),
-  
+
   getOpinion: (caseId: string) => fetchWithAuth(`/api/v1/cases/${caseId}/opinion`),
-  
+
   chatWithCase: (caseId: string, message: string) => fetchWithAuth(`/api/v1/cases/${caseId}/chat`, {
     method: 'POST',
     body: JSON.stringify({ message }),
   }),
+
+  downloadDocumentBlob: async (caseId: string, documentId: string) => {
+    const headers = new Headers();
+    if (authToken) {
+      headers.set('Authorization', `Bearer ${authToken}`);
+    }
+    const response = await fetch(`${BASE_URL}/api/v1/cases/${caseId}/documents/${documentId}/download`, { headers });
+    if (!response.ok) {
+      throw new Error('Failed to download document');
+    }
+    return await response.blob();
+  },
+
+  getAdminStats: () => fetchWithAuth('/api/v1/admin/stats'),
+  getAdminCases: () => fetchWithAuth('/api/v1/admin/cases'),
+  getAdminUsers: () => fetchWithAuth('/api/v1/admin/users'),
+  getAdminJobs: () => fetchWithAuth('/api/v1/admin/jobs'),
 };

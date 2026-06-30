@@ -15,6 +15,26 @@ export default function UploadZone({
 }: UploadZoneProps) {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [isDragging, setIsDragging] = useState(false);
+  const [previewFile, setPreviewFile] = useState<{ name: string; url: string; isPdf: boolean } | null>(null);
+  const [isPreviewLoading, setIsPreviewLoading] = useState<string | null>(null);
+
+  const handlePreviewFile = async (docId: string, docName: string) => {
+    setIsPreviewLoading(docId);
+    try {
+      const blob = await api.downloadDocumentBlob(activeCase.id, docId);
+      const url = URL.createObjectURL(blob);
+      setPreviewFile({
+        name: docName,
+        url,
+        isPdf: docName.toLowerCase().endsWith('.pdf') || blob.type === 'application/pdf'
+      });
+    } catch (err) {
+      alert('Failed to load file preview.');
+      console.error(err);
+    } finally {
+      setIsPreviewLoading(null);
+    }
+  };
 
   // Stats calculation
   const totalWeight = activeCase.documents.reduce((acc, d) => {
@@ -286,11 +306,16 @@ export default function UploadZone({
                       </button>
                     ) : (
                       <button
-                        onClick={() => alert(`Reviewing static preview for document "${doc.name}"...`)}
+                        onClick={() => handlePreviewFile(doc.id, doc.name)}
+                        disabled={isPreviewLoading === doc.id}
                         className="text-gray-400 hover:text-black p-0.5 hover:bg-gray-100 rounded transition-colors cursor-pointer"
-                        title="View Document Details"
+                        title="View Document"
                       >
-                        <span className="material-symbols-outlined text-[18px]">visibility</span>
+                        {isPreviewLoading === doc.id ? (
+                          <span className="material-symbols-outlined text-[18px] animate-spin">refresh</span>
+                        ) : (
+                          <span className="material-symbols-outlined text-[18px]">visibility</span>
+                        )}
                       </button>
                     )}
                     <button
@@ -352,6 +377,65 @@ export default function UploadZone({
           </div>
         </div>
       </div>
+
+      {/* File Preview Modal */}
+      {previewFile && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 sm:p-6 animate-fade-in">
+          <div className="bg-white rounded-xl shadow-2xl w-full max-w-5xl h-[85vh] flex flex-col overflow-hidden border border-gray-200">
+            {/* Modal Header */}
+            <div className="bg-gray-50 px-5 py-3.5 border-b border-gray-200 flex items-center justify-between">
+              <div className="flex items-center gap-2 overflow-hidden">
+                <span className="material-symbols-outlined text-gray-500">
+                  {previewFile.isPdf ? 'picture_as_pdf' : 'image'}
+                </span>
+                <h4 className="font-semibold text-gray-800 text-sm truncate">
+                  {previewFile.name}
+                </h4>
+              </div>
+              <div className="flex items-center gap-3">
+                <a
+                  href={previewFile.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="px-3 py-1.5 bg-black text-white text-xs font-semibold rounded-lg hover:opacity-90 transition-opacity flex items-center gap-1.5"
+                >
+                  <span className="material-symbols-outlined text-[16px]">open_in_new</span>
+                  <span>Open in New Tab</span>
+                </a>
+                <button
+                  onClick={() => {
+                    URL.revokeObjectURL(previewFile.url);
+                    setPreviewFile(null);
+                  }}
+                  className="text-gray-400 hover:text-black p-1 hover:bg-gray-200 rounded-lg transition-colors cursor-pointer"
+                  title="Close Preview"
+                >
+                  <span className="material-symbols-outlined text-[20px]">close</span>
+                </button>
+              </div>
+            </div>
+
+            {/* Modal Content */}
+            <div className="flex-1 bg-gray-100 p-4 overflow-hidden flex items-center justify-center">
+              {previewFile.isPdf ? (
+                <iframe
+                  src={previewFile.url}
+                  className="w-full h-full rounded-lg border border-gray-300 bg-white shadow-sm"
+                  title={previewFile.name}
+                />
+              ) : (
+                <div className="w-full h-full flex items-center justify-center overflow-auto">
+                  <img
+                    src={previewFile.url}
+                    alt={previewFile.name}
+                    className="max-w-full max-h-full object-contain rounded-lg shadow-sm"
+                  />
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
