@@ -1,7 +1,7 @@
 let authToken: string | null = localStorage.getItem('token');
 let unauthorizedCallback: (() => void) | null = null;
 
-const BASE_URL = 'http://127.0.0.1:8000';
+const BASE_URL =import.meta.env.VITE_APP_API_URL;
 
 export function setAuthToken(token: string | null) {
   authToken = token;
