@@ -38,7 +38,7 @@ def get_admin_stats(db: Session = Depends(get_db), current_user: UserProfile = D
         },
         "services": [
             {"service": "MongoDB Atlas", "status": "ONLINE", "latency": "14ms"},
-            {"service": "MySQL Database", "status": "ONLINE", "latency": "3ms"},
+            {"service": "PostgreSQL Database", "status": "ONLINE", "latency": "3ms"},
             {"service": "MinIO Document Storage", "status": "ONLINE", "latency": "8ms"},
             {"service": "Celery Extraction Queue", "status": "ONLINE", "workers": 4},
             {"service": "Docling AI OCR Pipeline", "status": "READY", "model": "V2"}

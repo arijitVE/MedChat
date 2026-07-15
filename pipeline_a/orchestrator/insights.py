@@ -15,7 +15,7 @@ logger = get_logger(__name__)
 
 
 def get_narrative_text(case_id: str, db: Session) -> str:
-    """Query ocr_pages and documents from MySQL, sort by document order and page number."""
+    """Query ocr_pages and documents from PostgreSQL, sort by document order and page number."""
     docs = db.query(Document).filter(Document.case_id == case_id).order_by(Document.uploaded_at).all()
     if not docs:
         return ""

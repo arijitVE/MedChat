@@ -1,13 +1,13 @@
 # pipeline_b/vector_db/qdrant_client.py
 from qdrant_client import QdrantClient
-from qdrant_client.models import Distance, VectorParams, PointStruct, Filter, FieldCondition, MatchValue
+from qdrant_client.models import Distance, VectorParams, PointStruct, Filter, FieldCondition, MatchValue, PayloadSchemaType
 from shared.config import get_settings
 
 COLLECTIONS = {
     "raw_chunks": "raw_chunks",
     "structured_medical_data": "structured_medical_data"
 }
-VECTOR_SIZE = 384
+VECTOR_SIZE = 1536
 
 _client = None
 
@@ -16,7 +16,11 @@ def get_client() -> QdrantClient:
     if _client is None:
         settings = get_settings()
         if settings.QDRANT_URL:
-            _client = QdrantClient(url=settings.QDRANT_URL)
+            _client = QdrantClient(
+                url=settings.QDRANT_URL,
+                api_key=settings.QDRANT_API_KEY,
+                timeout=60,
+            )
         else:
             _client = QdrantClient(path=settings.QDRANT_STORAGE_PATH)
     return _client
@@ -29,6 +33,16 @@ def ensure_collections_exist():
                 collection_name=name,
                 vectors_config=VectorParams(size=VECTOR_SIZE, distance=Distance.COSINE),
             )
+        try:
+            info = client.get_collection(name)
+            if "case_id" not in info.payload_schema:
+                client.create_payload_index(
+                    collection_name=name,
+                    field_name="case_id",
+                    field_schema=PayloadSchemaType.KEYWORD,
+                )
+        except Exception:
+            pass
 
 def upsert_vectors(collection: str, points: list[PointStruct]):
     if not points: return

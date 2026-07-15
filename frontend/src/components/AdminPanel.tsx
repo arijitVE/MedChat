@@ -23,7 +23,7 @@ export default function AdminPanel({ onBack }: AdminPanelProps) {
           overview: { total_cases: 12, total_documents: 48, total_users: 3, active_jobs: 0, completed_cases: 11, processing_cases: 1, failed_cases: 0 },
           services: [
             { service: 'MongoDB Atlas', status: 'ONLINE', latency: '14ms' },
-            { service: 'MySQL Database', status: 'ONLINE', latency: '3ms' },
+            { service: 'PostgreSQL Database', status: 'ONLINE', latency: '3ms' },
             { service: 'MinIO Document Storage', status: 'ONLINE', latency: '8ms' },
             { service: 'Celery Extraction Queue', status: 'ONLINE', workers: 4 },
             { service: 'Docling AI OCR Pipeline', status: 'READY', model: 'V2' }

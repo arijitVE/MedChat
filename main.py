@@ -18,6 +18,9 @@ from shared.db.session import init_db
 # Auto-create tables on startup (dev convenience — use Alembic for prod migrations)
 init_db()
 
+from pipeline_b.vector_db.qdrant_client import ensure_collections_exist
+ensure_collections_exist()
+
 from product.api.auth_routes import router as auth_router
 from product.api.case_routes import router as case_router
 from product.api.user_routes import router as user_router

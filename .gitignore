@@ -53,7 +53,7 @@ yarn-error.log*
 pnpm-debug.log*
 
 # Local application data
-storage/
+storage/minio_data
 qdrant_storage/
 qdrant_storage*/
 uploads/

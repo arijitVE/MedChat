@@ -2,7 +2,7 @@
 
 DocuMed-AI is an AI-powered Medical Documentation System. It is designed to ingest raw medical documents (both digital PDFs and scanned images), extract structured clinical information, generate longitudinal patient summaries and clinical opinions, and provide a RAG-based chat interface for deep medical research into a specific patient case.
 
-The project is built as a production-ready backend prototype with FastAPI, MySQL, Celery for asynchronous processing, and Qdrant for vector storage.
+The project is built as a production-ready backend prototype with FastAPI, PostgreSQL, Celery for asynchronous processing, and Qdrant for vector storage.
 
 ---
 
@@ -25,7 +25,7 @@ The project is built as a production-ready backend prototype with FastAPI, MySQL
 ## 🛠️ Technology Stack
 
 - **Backend Framework:** FastAPI (Python 3.13)
-- **Database (Relational):** MySQL + SQLAlchemy (ORM) + Alembic (Migrations)
+- **Database (Relational):** PostgreSQL + SQLAlchemy (ORM) + Alembic (Migrations)
 - **Database (Vector):** Qdrant
 - **Task Queue:** Celery + Redis
 - **AI / LLMs:** OpenAI (GPT-4o, GPT-4o-Vision), LangChain, SentenceTransformers
@@ -64,7 +64,7 @@ DocuMed-AI/
 
 ### 1. Prerequisites
 - Python 3.11+
-- MySQL Server (running locally or via Docker)
+- PostgreSQL Server (running locally, via Docker, or Neon DB)
 - Redis Server (for Celery workers)
 
 ### 2. Environment Variables
@@ -74,7 +74,7 @@ Create a `.env` file in the root directory. You can use `.env.example` if availa
 OPENAI_API_KEY="your-openai-key-here"
 
 # Database
-DATABASE_URL="mysql+pymysql://hdmis_user:hdmis_pass@localhost:3306/hdmis"
+DATABASE_URL="postgresql+psycopg://documed_user:documed_pass@localhost:5432/documed"
 
 # Auth / Security
 SECRET_KEY="your-super-secret-jwt-key"
@@ -97,7 +97,7 @@ pip install -r requirements.txt
 ```
 
 ### 4. Database Initialization
-The application is configured to automatically create tables on startup if they don't exist. Simply starting the server will initialize your MySQL database.
+The application is configured to automatically create tables on startup if they don't exist. Simply starting the server will initialize your PostgreSQL database.
 
 ---
 

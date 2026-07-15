@@ -24,14 +24,15 @@ class Settings(BaseSettings):
     
     LLM_TEXT_MODEL: str = "gpt-4o"
     LLM_VISION_MODEL: str = "gpt-4o"
+    LLM_EMBEDDING_MODEL: str = "text-embedding-3-small"
 
     # --- Database ---
-    DATABASE_URL: str = "mysql+pymysql://hdmis_user:hdmis_pass@localhost:3306/hdmis"
+    DATABASE_URL: str = "postgresql+psycopg://documed_user:documed_pass@localhost:5432/documed"
     MONGODB_URL: str = "mongodb://localhost:27017"
     MONGODB_DB_NAME: str = "documed"
 
     # --- Document Parsing ---
-    USE_DOCLING: bool = True
+    USE_DOCLING: bool = False
 
     # --- Product Layer Auth ---
     SECRET_KEY: str = "change-me-minimum-32-characters-secret"
@@ -46,6 +47,7 @@ class Settings(BaseSettings):
 
     # --- Qdrant ---
     QDRANT_URL: str | None = None
+    QDRANT_API_KEY: str | None = None
     QDRANT_STORAGE_PATH: str = "./qdrant_storage"
 
     # --- Redis / Celery ---

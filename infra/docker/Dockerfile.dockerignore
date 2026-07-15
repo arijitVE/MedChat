@@ -1,0 +1,30 @@
+# Virtual environments & python caches
+.venv
+venv
+__pycache__
+*.pyc
+*.pyo
+*.pyd
+.pytest_cache
+
+# Git & IDEs
+.git
+.gitignore
+.gemini
+.agents
+*.swp
+*.swo
+
+# Local data & storage volumes (from Docker / local testing)
+mongo_data
+qdrant_storage
+storage/minio_data
+minio_data
+*.db
+*.sqlite
+
+# Frontend & node modules (built separately)
+frontend
+node_modules
+dist
+build
