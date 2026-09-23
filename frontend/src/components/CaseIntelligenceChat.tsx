@@ -2,6 +2,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { api } from '../api';
 import { Send, CheckCircle, Lightbulb, Clipboard, PlusCircle, Bookmark, AlertTriangle, MessageSquare, Trash2 } from 'lucide-react';
 import { Case, Message, ChatThread } from '../types';
+import MarkdownRenderer from './MarkdownRenderer';
 
 interface CaseIntelligenceChatProps {
   activeCase: Case;
@@ -206,44 +207,12 @@ export default function CaseIntelligenceChat({
                       <span>{msg.time}</span>
                     </div>
 
-                    {/* Text block supports simple bullet formatting or tables */}
-                    <div className="whitespace-pre-wrap leading-relaxed font-sans prose prose-sm text-xs">
-                      {msg.content.includes('|') ? (
-                        // Simple custom table renderer inside chatbot
-                        <div className="overflow-x-auto my-3 bg-white border border-gray-200 rounded">
-                          <table className="w-full text-left text-[10px] uppercase font-mono tracking-normal border-collapse">
-                            <thead>
-                              <tr className="bg-gray-100 border-b border-gray-200">
-                                <th className="p-2 border-r border-gray-200">Doc Source</th>
-                                <th className="p-2 border-r border-gray-200">Logged Time</th>
-                                <th className="p-2 border-r border-gray-200">Findings</th>
-                                <th className="p-2">Conflict Context</th>
-                              </tr>
-                            </thead>
-                            <tbody>
-                              <tr className="border-b border-gray-150">
-                                <td className="p-2 font-bold border-r border-gray-200 text-black">Nursing Logs</td>
-                                <td className="p-2 border-r border-gray-200">March 14, 14:30</td>
-                                <td className="p-2 border-r border-gray-200">Sensory loss documented</td>
-                                <td className="p-2 text-red-700">Delayed 12.5 hrs warning page</td>
-                              </tr>
-                              <tr className="border-b border-gray-150">
-                                <td className="p-2 font-bold border-r border-gray-200 text-black">Dr. Aris Notes</td>
-                                <td className="p-2 border-r border-gray-200">March 15, 03:00</td>
-                                <td className="p-2 border-r border-gray-200">Received emergency alarm page</td>
-                                <td className="p-2 text-red-700">Page registered only after motor loss</td>
-                              </tr>
-                              <tr>
-                                <td className="p-2 font-bold border-r border-gray-200 text-black">Audit Trails</td>
-                                <td className="p-2 border-r border-gray-200">March 15, 11:20</td>
-                                <td className="p-2 border-r border-gray-200">Post-op telemetry written</td>
-                                <td className="p-2">Written retrospectively</td>
-                              </tr>
-                            </tbody>
-                          </table>
-                        </div>
+                    {/* Text block — AI messages use MarkdownRenderer, user messages are plain text */}
+                    <div className="leading-relaxed font-sans text-xs">
+                      {isAi ? (
+                        <MarkdownRenderer content={msg.content} />
                       ) : (
-                        msg.content
+                        <span className="whitespace-pre-wrap">{msg.content}</span>
                       )}
                     </div>
 

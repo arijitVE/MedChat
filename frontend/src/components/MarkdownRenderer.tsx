@@ -1,9 +1,5 @@
 import React from 'react';
 
-interface MarkdownRendererProps {
-  content: string;
-}
-
 /**
  * Normalizes LLM markdown output by:
  * 1. Stripping common leading indentation
@@ -197,10 +193,18 @@ function parseMarkdown(raw: string): React.ReactNode[] {
   return nodes;
 }
 
-export default function MarkdownRenderer({ content }: MarkdownRendererProps) {
+interface MarkdownRendererProps {
+  content: string;
+  className?: string;
+}
+
+export default function MarkdownRenderer({ content, className }: MarkdownRendererProps) {
   const rendered = parseMarkdown(content);
   return (
-    <div style={{ fontFamily: "'Inter', ui-sans-serif, system-ui, sans-serif", fontSize: 14, lineHeight: 1.7, color: '#1f2937' }}>
+    <div
+      className={className}
+      style={{ fontFamily: "'Inter', ui-sans-serif, system-ui, sans-serif", lineHeight: 1.7, color: 'inherit' }}
+    >
       {rendered}
     </div>
   );
