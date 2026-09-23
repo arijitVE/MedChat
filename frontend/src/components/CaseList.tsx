@@ -1,12 +1,13 @@
 import React, { useState } from 'react';
 import { Plus, ChevronLeft, ChevronRight, MoreVertical, Search } from 'lucide-react';
 import { Case } from '../types';
+import ConfirmDialog from './ConfirmDialog';
 
 interface CaseListProps {
   cases: Case[];
   onSelectCase: (caseId: string) => void;
   onAddCase: (newCase: Case) => void;
-  onDeleteCase: (caseId: string) => void;
+  onDeleteCase: (caseId: string) => Promise<void>;
   searchTerm: string;
   statusFilter: 'ALL' | 'PROCESSING' | 'COMPLETED';
 }
@@ -24,6 +25,10 @@ export default function CaseList({
   const [newClientName, setNewClientName] = useState('');
   const [newAgeSex, setNewAgeSex] = useState('58-year-old male');
   const [newDiagnosis, setNewDiagnosis] = useState('');
+
+  // Delete confirmation state
+  const [deleteTarget, setDeleteTarget] = useState<{ id: string; title: string } | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
   
   // Local state for table pagination
   const [currentPage, setCurrentPage] = useState(1);
@@ -235,11 +240,7 @@ export default function CaseList({
                     <td className="px-6 py-3.5 text-right" onClick={(e) => e.stopPropagation()}>
                       <div className="relative inline-block text-left">
                         <button
-                          onClick={() => {
-                            if (confirm(`Do you really want to archive/delete Case #${item.id}?`)) {
-                              onDeleteCase(item.id);
-                            }
-                          }}
+                          onClick={() => setDeleteTarget({ id: item.id, title: item.title })}
                           className="p-1 rounded hover:bg-gray-100 text-gray-400 hover:text-red-700 transition-colors cursor-pointer"
                           title="Delete Case Log"
                         >
@@ -381,6 +382,28 @@ export default function CaseList({
           </div>
         </div>
       )}
+
+      {/* Case Delete Confirmation Dialog */}
+      <ConfirmDialog
+        isOpen={!!deleteTarget}
+        title="Delete Case?"
+        description={`This will permanently delete case "${deleteTarget?.title || ''}" along with all its documents, AI summaries, and extracted data. This action cannot be undone.`}
+        confirmLabel="Yes, Delete"
+        cancelLabel="Keep Case"
+        variant="danger"
+        isLoading={isDeleting}
+        onCancel={() => { if (!isDeleting) setDeleteTarget(null); }}
+        onConfirm={async () => {
+          if (!deleteTarget) return;
+          setIsDeleting(true);
+          try {
+            await onDeleteCase(deleteTarget.id);
+          } finally {
+            setIsDeleting(false);
+            setDeleteTarget(null);
+          }
+        }}
+      />
     </div>
   );
 }

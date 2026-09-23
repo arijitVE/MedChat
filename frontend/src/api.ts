@@ -61,6 +61,28 @@ async function fetchWithAuth(url: string, options: RequestInit = {}) {
   return response.json();
 }
 
+// For endpoints that return 204 No Content
+async function fetchWithAuthVoid(url: string, options: RequestInit = {}) {
+  const headers = new Headers(options.headers || {});
+  if (authToken) {
+    headers.set('Authorization', `Bearer ${authToken}`);
+  }
+  const response = await fetch(`${BASE_URL}${url}`, { ...options, headers });
+  if (response.status === 401) {
+    setAuthToken(null);
+    if (unauthorizedCallback) unauthorizedCallback();
+    throw new Error('Unauthorized');
+  }
+  if (!response.ok) {
+    let errorMessage = 'API Error';
+    try {
+      const errorData = await response.json();
+      errorMessage = errorData.detail || errorMessage;
+    } catch (e) {}
+    throw new Error(errorMessage);
+  }
+}
+
 export const api = {
   login: (data: any) => fetchWithAuth('/auth/login', {
     method: 'POST',
@@ -123,4 +145,9 @@ export const api = {
   getAdminCases: () => fetchWithAuth('/api/v1/admin/cases'),
   getAdminUsers: () => fetchWithAuth('/api/v1/admin/users'),
   getAdminJobs: () => fetchWithAuth('/api/v1/admin/jobs'),
+
+  deleteCase: (caseId: string) => fetchWithAuthVoid(`/api/v1/cases/${caseId}`, { method: 'DELETE' }),
+
+  deleteDocument: (caseId: string, documentId: string) =>
+    fetchWithAuthVoid(`/api/v1/cases/${caseId}/documents/${documentId}`, { method: 'DELETE' }),
 };

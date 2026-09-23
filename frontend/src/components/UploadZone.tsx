@@ -1,6 +1,7 @@
 import React, { useRef, useState } from 'react';
 import { api } from '../api';
 import { Case, CaseDocument } from '../types';
+import ConfirmDialog from './ConfirmDialog';
 
 interface UploadZoneProps {
   activeCase: Case;
@@ -17,6 +18,9 @@ export default function UploadZone({
   const [isDragging, setIsDragging] = useState(false);
   const [previewFile, setPreviewFile] = useState<{ name: string; url: string; isPdf: boolean } | null>(null);
   const [isPreviewLoading, setIsPreviewLoading] = useState<string | null>(null);
+  // Document delete confirmation state
+  const [deleteDocTarget, setDeleteDocTarget] = useState<{ id: string; name: string } | null>(null);
+  const [isDocDeleting, setIsDocDeleting] = useState(false);
 
   const handlePreviewFile = async (docId: string, docName: string) => {
     setIsPreviewLoading(docId);
@@ -124,10 +128,24 @@ export default function UploadZone({
     }
   };
 
-  const handleDeleteFile = (id: string, e: React.MouseEvent) => {
+  const handleDeleteFile = (id: string, name: string, e: React.MouseEvent) => {
     e.stopPropagation();
-    const updated = activeCase.documents.filter(d => d.id !== id);
-    onUpdateCaseDocuments(updated);
+    setDeleteDocTarget({ id, name });
+  };
+
+  const handleConfirmDeleteDocument = async () => {
+    if (!deleteDocTarget) return;
+    setIsDocDeleting(true);
+    try {
+      await api.deleteDocument(activeCase.id, deleteDocTarget.id);
+    } catch (err) {
+      console.error('Failed to delete document from server:', err);
+    } finally {
+      const updated = activeCase.documents.filter(d => d.id !== deleteDocTarget.id);
+      onUpdateCaseDocuments(updated);
+      setIsDocDeleting(false);
+      setDeleteDocTarget(null);
+    }
   };
 
   const handleRefreshFile = (id: string, e: React.MouseEvent) => {
@@ -319,7 +337,7 @@ export default function UploadZone({
                       </button>
                     )}
                     <button
-                      onClick={(e) => handleDeleteFile(doc.id, e)}
+                      onClick={(e) => handleDeleteFile(doc.id, doc.name, e)}
                       className="text-gray-400 hover:text-red-700 p-0.5 hover:bg-gray-100 rounded transition-colors cursor-pointer"
                       title="Remove file"
                     >
@@ -436,6 +454,19 @@ export default function UploadZone({
           </div>
         </div>
       )}
+
+      {/* Document Delete Confirmation Dialog */}
+      <ConfirmDialog
+        isOpen={!!deleteDocTarget}
+        title="Delete Document?"
+        description={`"${deleteDocTarget?.name || ''}" will be permanently removed from this case and from storage. This cannot be undone.`}
+        confirmLabel="Yes, Delete"
+        cancelLabel="Keep File"
+        variant="danger"
+        isLoading={isDocDeleting}
+        onCancel={() => { if (!isDocDeleting) setDeleteDocTarget(null); }}
+        onConfirm={handleConfirmDeleteDocument}
+      />
     </div>
   );
 }

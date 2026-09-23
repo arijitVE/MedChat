@@ -271,3 +271,77 @@ def chat_with_case(case_id: str, request: ChatRequest, db: Session = Depends(get
     
     reply = resp.choices[0].message.content or "I was unable to generate a response."
     return ChatResponse(reply=reply)
+
+
+@router.delete("/{case_id}", status_code=204)
+def delete_case(case_id: str, db: Session = Depends(get_db), current_user = Depends(get_current_user)):
+    """Permanently delete a case and all its documents, jobs, and associated AI data."""
+    case = db.get(Case, case_id)
+    if not case or str(case.user_id) != str(current_user.user_id):
+        raise HTTPException(status_code=404, detail="Case not found")
+
+    # 1. Delete files from storage for every document
+    documents = db.query(Document).filter_by(case_id=case_id).all()
+    if documents:
+        try:
+            from storage.backend import get_storage
+            storage = get_storage()
+            for doc in documents:
+                if doc.storage_path:
+                    try:
+                        storage.delete_file(doc.storage_path)
+                    except Exception:
+                        pass  # Best-effort file deletion
+        except Exception:
+            pass
+
+    # 2. Delete MongoDB collections data for this case
+    try:
+        for collection_name in ["case_insights", "case_metadata", "case_clinical_fields"]:
+            get_collection(collection_name).delete_many({"case_id": case_id})
+    except Exception:
+        pass
+
+    # 3. Delete Qdrant vectors for this case
+    try:
+        from qdrant_client.models import Filter, FieldCondition, MatchValue
+        from pipeline_b.vector_db.qdrant_client import get_client as get_qdrant_client
+        qdrant = get_qdrant_client()
+        case_filter = Filter(must=[FieldCondition(key="case_id", match=MatchValue(value=case_id))])
+        for collection in ["raw_chunks", "structured_medical_data"]:
+            try:
+                qdrant.delete(collection_name=collection, points_selector=case_filter)
+            except Exception:
+                pass
+    except Exception:
+        pass
+
+    # 4. Delete the case from PostgreSQL (cascades to documents & jobs)
+    db.delete(case)
+    db.commit()
+
+
+@router.delete("/{case_id}/documents/{document_id}", status_code=204)
+def delete_document(case_id: str, document_id: str, db: Session = Depends(get_db), current_user = Depends(get_current_user)):
+    """Delete a single document from a case, including its file in storage."""
+    case = db.get(Case, case_id)
+    if not case or str(case.user_id) != str(current_user.user_id):
+        raise HTTPException(status_code=404, detail="Case not found")
+
+    doc = db.get(Document, document_id)
+    if not doc or doc.case_id != case_id:
+        raise HTTPException(status_code=404, detail="Document not found")
+
+    # 1. Delete file from storage
+    if doc.storage_path:
+        try:
+            from storage.backend import get_storage
+            storage = get_storage()
+            storage.delete_file(doc.storage_path)
+        except Exception:
+            pass  # Best-effort
+
+    # 2. Delete from DB
+    db.delete(doc)
+    db.commit()
+

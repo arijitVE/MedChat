@@ -173,7 +173,13 @@ export default function App() {
     }
   };
 
-  const handleDeleteCase = (caseId: string) => {
+  const handleDeleteCase = async (caseId: string) => {
+    try {
+      await api.deleteCase(caseId);
+    } catch (err) {
+      console.error('Failed to delete case from server:', err);
+      // Still remove from UI so user isn't stuck
+    }
     setCases(cases.filter(c => c.id !== caseId));
     if (activeCaseId === caseId) {
       setActiveCaseId(null);
